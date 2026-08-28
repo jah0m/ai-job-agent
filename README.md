@@ -6,6 +6,8 @@ English | [简体中文](README.zh.md)
 
 AI Job Agent brings information scattered across job boards, chat histories, and folders into one local workspace. It keeps candidate facts and preferences, discovered jobs, applications, materials, and submission records connected without treating an AI conversation as durable state.
 
+![AI Job Agent working with Codex to search, evaluate, and organize jobs](demo.png)
+
 ## Installation
 
 ### Recommended: give the GitHub URL to Codex
