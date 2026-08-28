@@ -799,7 +799,8 @@ export function PreferencesPage() {
       | "target_domains"
       | "locations"
       | "hard_constraints"
-      | "soft_preferences",
+      | "soft_preferences"
+      | "blacklisted_companies",
   ) => preferences[key] ?? [];
   return (
     <div className="preferences-page">
@@ -901,6 +902,10 @@ export function PreferencesPage() {
             values={list("soft_preferences")}
             bullet
           />
+          <PreferenceList
+            label="拉黑公司"
+            values={list("blacklisted_companies")}
+          />
         </Panel>
       </div>
     </div>
@@ -974,7 +979,8 @@ export function PreferencesEditPage() {
       | "target_domains"
       | "locations"
       | "hard_constraints"
-      | "soft_preferences",
+      | "soft_preferences"
+      | "blacklisted_companies",
     raw: string,
   ) =>
     setPreferences((current) =>
@@ -1004,6 +1010,7 @@ export function PreferencesEditPage() {
       compensation_target: compensation.target ?? null,
       hard_constraints: joinLines(preferences.hard_constraints),
       soft_preferences: joinLines(preferences.soft_preferences),
+      blacklisted_companies: joinLines(preferences.blacklisted_companies),
     };
     try {
       await postUrlEncoded("/preferences/edit", values);
@@ -1204,6 +1211,12 @@ export function PreferencesEditPage() {
               onChange={(value) => setList("soft_preferences", value)}
               rows={8}
               value={joinLines(preferences.soft_preferences)}
+            />
+            <TextAreaField
+              label="拉黑公司（每行一家公司）"
+              onChange={(value) => setList("blacklisted_companies", value)}
+              rows={8}
+              value={joinLines(preferences.blacklisted_companies)}
             />
           </div>
         </Panel>

@@ -271,6 +271,7 @@ Phone: 090-0000-0000 · Email: cli@example.invalid
             "minimum": 8_000_000,
             "target": 10_000_000,
         }
+        preferences["blacklisted_companies"] = ["Do Not Apply KK", "Blocked Co"]
         preferences_file = self.base / "preferences-update.json"
         preferences_file.write_text(json.dumps(preferences), encoding="utf-8")
 
@@ -279,6 +280,9 @@ Phone: 090-0000-0000 · Email: cli@example.invalid
         )
         self.assertEqual(saved_preferences["schema_version"], 2)
         self.assertEqual(saved_preferences["target_roles"], ["Platform Engineer"])
+        self.assertEqual(
+            saved_preferences["blacklisted_companies"], ["Do Not Apply KK", "Blocked Co"]
+        )
         self.assertEqual(self.run_cli("preferences", "show"), saved_preferences)
 
     def test_invalid_profile_and_preferences_updates_do_not_replace_state(self) -> None:

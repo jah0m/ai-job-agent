@@ -364,6 +364,7 @@ Phone: 090-0000-0000 · Email: web@example.invalid
                 "maximum_office_days_per_week": "2",
                 "compensation_currency": "JPY",
                 "compensation_minimum": "8000000",
+                "blacklisted_companies": "Blocked Co\nDo Not Apply KK",
                 "hard_constraints": "No relocation",
                 "soft_preferences": "High autonomy",
             },
@@ -375,6 +376,10 @@ Phone: 090-0000-0000 · Email: web@example.invalid
                 "maximum_office_days_per_week"
             ],
             2,
+        )
+        self.assertEqual(
+            self.workspace.show_preferences()["blacklisted_companies"],
+            ["Blocked Co", "Do Not Apply KK"],
         )
 
     def test_job_review_and_application_workflow(self) -> None:

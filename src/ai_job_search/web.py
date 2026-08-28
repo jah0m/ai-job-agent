@@ -1048,6 +1048,9 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
                     },
                     "hard_constraints": _lines(_value(values, "hard_constraints")),
                     "soft_preferences": _lines(_value(values, "soft_preferences")),
+                    "blacklisted_companies": _lines(
+                        _value(values, "blacklisted_companies")
+                    ),
                 }
             )
             workspace.update_preferences(current)

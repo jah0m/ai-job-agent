@@ -193,6 +193,7 @@ export type Preferences = {
   };
   hard_constraints?: string[];
   soft_preferences?: string[];
+  blacklisted_companies?: string[];
   [key: string]: unknown;
 };
 

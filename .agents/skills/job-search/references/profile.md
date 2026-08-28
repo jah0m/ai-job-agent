@@ -5,7 +5,12 @@ The authoritative private files are:
 - `.job-search/profile/candidate.json`: identity, contact details, experience,
   education, skills, languages, and evidence-backed accomplishments.
 - `.job-search/profile/preferences.json`: target roles, locations, work style,
-  compensation, hard constraints, and soft preferences.
+  compensation, hard constraints, soft preferences, and
+  `blacklisted_companies`.
+
+`blacklisted_companies` is a list of employer names the candidate does not want
+to pursue. Preserve it when updating preferences and use it to exclude or flag
+matching companies during job search and triage.
 
 Initialize the workspace with `python scripts/job_search.py init`. Populate the
 profile from an existing CV when supplied; otherwise ask only for missing facts

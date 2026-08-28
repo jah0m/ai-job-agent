@@ -189,6 +189,7 @@ class Workspace:
                     "compensation": {},
                     "hard_constraints": [],
                     "soft_preferences": [],
+                    "blacklisted_companies": [],
                 },
                 overwrite=False,
             )
@@ -902,6 +903,10 @@ class Workspace:
         preferences = _json_read(self.root / "profile" / "preferences.json")
         if not isinstance(preferences, dict):
             raise WorkspaceError("Preferences must be a JSON object")
+        # Keep older workspaces readable after adding the optional company
+        # blacklist preference.
+        preferences = dict(preferences)
+        preferences.setdefault("blacklisted_companies", [])
         return preferences
 
     def update_candidate_profile(self, profile: dict[str, Any]) -> dict[str, Any]:
@@ -935,13 +940,17 @@ class Workspace:
         self.require_initialized()
         if not isinstance(preferences, dict):
             raise WorkspaceError("Preferences must be a JSON object")
+        preferences = dict(preferences)
         for key in (
             "target_roles",
             "target_domains",
             "locations",
             "hard_constraints",
             "soft_preferences",
+            "blacklisted_companies",
         ):
+            if key == "blacklisted_companies":
+                preferences.setdefault(key, [])
             if not isinstance(preferences.get(key), list):
                 raise WorkspaceError(f"Preferences {key} must be a list")
             if not all(isinstance(item, str) for item in preferences[key]):
@@ -981,7 +990,6 @@ class Workspace:
                 raise WorkspaceError(
                     f"Preferences compensation.{key} must not be negative"
                 )
-        preferences = dict(preferences)
         preferences["schema_version"] = SCHEMA_VERSION
         _json_write(self.root / "profile" / "preferences.json", preferences)
         return preferences

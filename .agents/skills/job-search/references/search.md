@@ -20,6 +20,11 @@ search output is not a complete posting and must not be treated as the final
 import shape. The normalized `description` is a short AI summary of the role's
 actual duties; never put fetched HTML or the full posting into that field.
 
+Read `blacklisted_companies` from the saved job-search preferences before
+triage. Exclude matching employers from recommendations when the match is
+clear; if the company name is ambiguous, flag it for confirmation instead of
+silently treating it as a match.
+
 Direct URL import is also a recommended first-class workflow. When the user
 provides a public job-detail URL and asks to import or save it, skip discovery
 search, follow [references/ingest.md](ingest.md), and persist the validated job
