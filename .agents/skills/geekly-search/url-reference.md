@@ -81,7 +81,7 @@ Plain server-rendered HTML (no embedded JSON, unlike Green). Confirmed live
 |-------|--------|
 | Title | `<h1 class="recruit-head-contents__heading">` |
 | Company | `<a class="recruit-head-contents__company-name">` |
-| Everything else | `<dl class="recruit-main-job-description__requirements">` — a flat sequence of `<dt>label</dt><dd>value</dd>` pairs. Observed labels: 仕事内容 (job content), 必要なスキル (required skills), 勤務地 (location), 保険 (insurance), 諸手当 (allowances), 休日・休暇 (holidays), 年収 (salary), 業種 (industry), 設立 (founded), 従業員数 (employees), 資本金 (capital), 所在地 (company address) |
+| Everything else | `<dl class="recruit-main-job-description__requirements">` — a flat sequence of `<dt ...>label</dt><dd ...>value</dd>` pairs. Observed labels: 仕事内容 (job content), 必要なスキル (required skills), 勤務地 (location), 保険 (insurance), 諸手当 (allowances), 休日・休暇 (holidays), 年収 (salary), 業種 (industry), 設立 (founded), 従業員数 (employees), 資本金 (capital), 所在地 (company address) |
 
 ## Listing card HTML anchors (for `parseJobCards`)
 
@@ -95,7 +95,7 @@ Within a card:
 | Title | Same `<a>` element's text |
 | Company | `<div class="company_name"><a>` |
 | Feature tags | `<ul class="recruitment_head_tags"><li><span>` (repeated) |
-| Salary | `<dt class="head_tag">年　収</dt><dd class="content_text">` (note the full-width space inside "年　収") |
+| Salary | Observed variants include `<dt class="last-child">年収</dt><dd ...>` and `<dt class="head_tag">年　収</dt><dd class="content_text">`; detail parsing normalizes the label whitespace. |
 | Location | `<dt class="head_tag">勤務地</dt><dd class="content_text">` |
 | Posting date | Not present on listing cards — `date` is always `null` in `search` results |
 

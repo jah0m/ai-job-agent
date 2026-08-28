@@ -20,6 +20,11 @@ from .markdown_contract import (
     TEMPLATE_REVISION,
     validate_application_documents,
 )
+from .job_contract import (
+    JobContractError,
+    validate_job_semantics,
+    validate_job_shape,
+)
 
 SCHEMA_VERSION = 2
 DEFAULT_STATUS = "draft"
@@ -478,48 +483,118 @@ class Workspace:
             )
         )
 
-    def import_jobs(self, *, portal: str, source_file: str | Path) -> dict[str, Any]:
+    def describe_job_evidence(
+        self,
+        *,
+        portal: str,
+        url: str,
+        snapshot: str | Path,
+        retriever: str | None = None,
+    ) -> dict[str, Any]:
+        """Build trusted provenance metadata for a CLI-fetched page snapshot."""
+        self.require_initialized()
+        provider = slugify(portal)
+        detail_url = self._canonical_url(url)
+        snapshot_path = Path(snapshot).expanduser().resolve()
+        cache_root = (self.root / "cache").resolve()
+        try:
+            snapshot_path.relative_to(cache_root)
+        except ValueError as exc:
+            raise WorkspaceError(
+                f"Job evidence snapshot must be under {cache_root}: {snapshot_path}"
+            ) from exc
+        if not snapshot_path.is_file():
+            raise WorkspaceError(f"Job evidence snapshot is not a file: {snapshot_path}")
+        source = {
+            "provider": provider,
+            "detail_url": detail_url,
+            "retrieved_at": now_iso(),
+            "snapshot_path": self._relative(snapshot_path),
+            "snapshot_sha256": sha256_file(snapshot_path),
+        }
+        if retriever is not None:
+            retriever = retriever.strip()
+            if not retriever:
+                raise WorkspaceError("Job evidence retriever cannot be blank")
+            source["retriever"] = retriever
+        return source
+
+    def import_jobs(
+        self,
+        *,
+        portal: str,
+        source_file: str | Path,
+        validate_only: bool = False,
+    ) -> dict[str, Any]:
         self.require_initialized()
         portal = slugify(portal)
         source = Path(source_file).expanduser().resolve()
         payload = _json_read(source)
-        if isinstance(payload, dict):
-            results = payload.get("results")
-        else:
+        if isinstance(payload, list):
             results = payload
-        if not isinstance(results, list):
+        elif isinstance(payload, dict):
+            results = [payload]
+        else:
             raise WorkspaceError(
-                "Job import JSON must be a list or contain a results list"
+                "Normalized job import JSON must be one object or a list of objects"
             )
+        if not results:
+            raise WorkspaceError("Normalized job import must contain at least one job")
+
+        prepared: list[dict[str, Any]] = []
+        identities: set[tuple[str, str]] = set()
+        for index, raw in enumerate(results):
+            try:
+                validate_job_shape(raw)
+                url = self._canonical_url(raw["url"])
+                detail_url = self._canonical_url(raw["source"]["detail_url"])
+                validate_job_semantics(
+                    raw,
+                    portal=portal,
+                    workspace_root=self.root,
+                    canonical_url=url,
+                    canonical_detail_url=detail_url,
+                )
+            except (JobContractError, WorkspaceError) as exc:
+                raise WorkspaceError(f"Job import item {index}: {exc}") from exc
+            external_id = raw.get("external_id")
+            identity = (portal, external_id or url)
+            if identity in identities:
+                raise WorkspaceError(
+                    f"Job import item {index}: duplicate listing identity in the same batch"
+                )
+            identities.add(identity)
+            prepared.append(
+                {
+                    "raw": raw,
+                    "url": url,
+                    "external_id": external_id,
+                    "title": raw["title"].strip(),
+                    "company": raw.get("company"),
+                    "location": raw.get("location"),
+                    "posted_at": raw.get("posted_at"),
+                }
+            )
+
+        if validate_only:
+            return {
+                "portal": portal,
+                "valid": True,
+                "jobs": len(prepared),
+                "source_file": str(source),
+            }
 
         imported = 0
         updated = 0
-        skipped = 0
         seen_at = now_iso()
         with self.connect() as connection:
-            for raw in results:
-                if not isinstance(raw, dict):
-                    skipped += 1
-                    continue
-                title = str(raw.get("title") or "").strip()
-                url_value = str(raw.get("url") or raw.get("jobUrl") or "").strip()
-                if not title or not url_value:
-                    skipped += 1
-                    continue
-                url = self._canonical_url(url_value)
-                external_id_value = raw.get("id") or raw.get("jobId")
-                external_id = (
-                    str(external_id_value).strip()
-                    if external_id_value is not None
-                    else None
-                )
+            for item in prepared:
+                raw = item["raw"]
+                title = item["title"]
+                url = item["url"]
+                external_id = item["external_id"]
                 stable_source = f"{portal}\0{external_id or url}"
                 job_id = f"{portal}-{hashlib.sha256(stable_source.encode('utf-8')).hexdigest()[:16]}"
-                company_value = raw.get("company") or raw.get("companyName")
-                location_value = raw.get("location")
-                posted_value = (
-                    raw.get("postedAt") or raw.get("posted_at") or raw.get("date")
-                )
                 existing = connection.execute(
                     """
                     SELECT id FROM jobs
@@ -537,10 +612,10 @@ class Workspace:
                         (
                             external_id,
                             title,
-                            str(company_value).strip() if company_value else None,
-                            str(location_value).strip() if location_value else None,
+                            item["company"],
+                            item["location"],
                             url,
-                            str(posted_value).strip() if posted_value else None,
+                            item["posted_at"],
                             seen_at,
                             raw_json,
                             existing["id"],
@@ -560,10 +635,10 @@ class Workspace:
                             portal,
                             external_id,
                             title,
-                            str(company_value).strip() if company_value else None,
-                            str(location_value).strip() if location_value else None,
+                            item["company"],
+                            item["location"],
                             url,
-                            str(posted_value).strip() if posted_value else None,
+                            item["posted_at"],
                             seen_at,
                             seen_at,
                             raw_json,
@@ -574,7 +649,7 @@ class Workspace:
             "portal": portal,
             "imported": imported,
             "updated": updated,
-            "skipped": skipped,
+            "skipped": 0,
         }
 
     def list_jobs(self, *, status: str | None = None) -> list[dict[str, Any]]:
@@ -601,6 +676,13 @@ class Workspace:
                 j.id, j.portal, j.external_id, j.title, j.company, j.location,
                 j.url, j.posted_at, j.status, j.rating, j.first_seen_at, j.last_seen_at,
                 j.raw_json,
+                (
+                    SELECT application.status
+                    FROM applications AS application
+                    WHERE application.source_job_id = j.id
+                    ORDER BY application.created_at
+                    LIMIT 1
+                ) AS application_status,
                 evaluation.payload_json AS evaluation_json,
                 evaluation.analyzed_at AS evaluation_analyzed_at
             FROM jobs AS j

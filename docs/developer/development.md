@@ -22,7 +22,9 @@ python scripts/job_search.py --help
 ```powershell
 python scripts/job_search.py init
 python scripts/job_search.py apply --company "Example KK" --role "AI Engineer" --source .\posting.md
-python scripts/job_search.py job import --portal green --file .\green-results.json
+python scripts/job_search.py job evidence --portal green --url <detail-url> --snapshot .\.job-search\cache\posting.json --retriever green-search/1
+python scripts/job_search.py job validate --portal green --file .\normalized-jobs.json
+python scripts/job_search.py job import --portal green --file .\normalized-jobs.json
 python scripts/job_search.py job list --status new
 python scripts/job_search.py job evaluate <job-id> --file .\.job-search\cache\evaluation.json
 python scripts/job_search.py draft save <application-id> --from .\generated --status working
@@ -81,4 +83,6 @@ Pop-Location
 ```
 
 See [architecture](architecture.md) and the [storage model](storage-model.md)
-for further implementation context.
+for further implementation context. The complete retriever → evidence → AI
+mapping → validation → atomic import contract is documented in
+[job discovery and ingestion](job-ingestion.md).

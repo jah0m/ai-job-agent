@@ -4,11 +4,14 @@ import json
 import re
 import sys
 from pathlib import Path
+from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[1]
 FORBIDDEN_SCRIPTS = {"preinstall", "install", "postinstall", "prepare", "prepack"}
 ALLOWED_SKILL_KEYS = {"name", "description", "license", "metadata", "allowed-tools"}
+TEST_URL_PATTERN = re.compile(r"https?://[^\s\"'`<>]+")
+TEST_SOURCE_SUFFIXES = {".js", ".json", ".jsx", ".py", ".ts", ".tsx"}
 
 
 def check_compatibility_alias(root: Path, alias: str, target: str) -> list[str]:
@@ -114,11 +117,41 @@ def check_package_manifests(root: Path) -> list[str]:
     return errors
 
 
+def check_test_urls(root: Path) -> list[str]:
+    """Reject live internet URLs embedded in tracked test fixtures."""
+    candidates = list((root / "tests").rglob("*"))
+    candidates += list((root / ".agents" / "skills").glob("*/cli/tests/**/*"))
+    errors: list[str] = []
+    for path in sorted(set(candidates)):
+        if not path.is_file() or path.suffix.lower() not in TEST_SOURCE_SUFFIXES:
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError as exc:
+            errors.append(f"{path.relative_to(root)} is unreadable: {exc}")
+            continue
+        for match in TEST_URL_PATTERN.finditer(text):
+            url = match.group(0).rstrip(".,);]")
+            hostname = (urlsplit(url).hostname or "").lower()
+            if (
+                hostname == "localhost"
+                or hostname in {"127.0.0.1", "::1"}
+                or hostname.endswith(".invalid")
+            ):
+                continue
+            errors.append(
+                f"{path.relative_to(root)} embeds a live URL; use example.invalid "
+                "or a loopback address instead"
+            )
+    return errors
+
+
 def run_checks(root: Path = ROOT) -> list[str]:
     return (
         check_gitignore(root)
         + check_agent_layout(root)
         + check_package_manifests(root)
+        + check_test_urls(root)
     )
 
 

@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { parseJobCards, parseJobDetail, resolveJobType, resolveArea } from "../src/helpers";
+import { BASE_URL, parseJobCards, parseJobDetail, resolveJobType, resolveArea } from "../src/helpers";
 
 // Minimal card markup mirroring the real structure fetched live from
 // green-japan.com/jobtype-l/190100 on 2026-07-26.
@@ -34,16 +34,16 @@ function card(companyId: string, jobId: string, title: string, company = "Acme I
 
 describe("parseJobCards", () => {
   test("extracts id, title, company, location, salary, tags, date, url", () => {
-    const html = card("1234", "5678", "Senior Engineer");
+    const html = card("999999901", "999999902", "Senior Engineer");
     const [c] = parseJobCards(html);
-    expect(c.id).toBe("1234/5678");
+    expect(c.id).toBe("999999901/999999902");
     expect(c.title).toBe("Senior Engineer");
     expect(c.company).toBe("Acme Inc.");
     expect(c.location).toBe("東京都，神奈川県");
     expect(c.salary).toBe("500万円〜700万円");
     expect(c.tags).toEqual(["TypeScript", "React"]);
     expect(c.date).toBe("2026/07/01");
-    expect(c.url).toBe("https://www.green-japan.com/company/1234/job/5678");
+    expect(c.url).toBe(`${BASE_URL}/company/999999901/job/999999902`);
   });
 
   test("one malformed card (no title) does not break parsing of the rest", () => {

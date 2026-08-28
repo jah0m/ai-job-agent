@@ -25,6 +25,10 @@ retain the English keyword in parentheses.
 
 - For discovering and triaging jobs, read
   [references/search.md](references/search.md).
+- For importing a job from a portal result or a user-supplied URL, also read
+  [references/ingest.md](references/ingest.md). Import is page-evidence-first:
+  fetch the full public posting, have AI map its facts to normalized fields
+  with field-level evidence, then persist the normalized record.
 - For initial or revised candidate facts, read
   [references/profile.md](references/profile.md).
 - For a new job or fit decision, read

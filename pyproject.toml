@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [{ name = "Jiehong Li" }]
-dependencies = []
+dependencies = ["jsonschema>=4.23,<5"]
 
 [project.optional-dependencies]
 pdf = ["pypdf>=5"]
@@ -30,4 +30,5 @@ where = ["src"]
 ai_job_search = [
   "frontend_dist/index.html",
   "frontend_dist/assets/*",
+  "schemas/*.json",
 ]

@@ -37,6 +37,14 @@ DRAFT_LABELS = {
     "empty": "未开始",
     "working": "编辑中",
 }
+CLOSED_APPLICATION_STATUSES = {"rejected", "withdrawn", "closed"}
+JOB_STATUS_BUCKETS = (
+    "application_active",
+    "application_closed",
+    "saved",
+    "new",
+    "skipped",
+)
 
 PROFILE_SECTIONS = (
     ("基本信息", "identity"),
@@ -76,27 +84,111 @@ def _description(raw: Any) -> str:
 
 
 def _salary(raw: Any) -> str:
+    """Format the employer-stated salary stored in the source payload."""
+    if isinstance(raw, dict):
+        value = raw.get("salary")
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+        if isinstance(value, dict):
+            minimum = value.get("annual_minimum")
+            maximum = value.get("annual_maximum")
+            currency = str(value.get("currency") or "").upper()
+            if currency == "JPY" and isinstance(minimum, (int, float)):
+                lower = f"¥{minimum / 1_000_000:g}M"
+                upper = (
+                    f"¥{maximum / 1_000_000:g}M"
+                    if isinstance(maximum, (int, float))
+                    else ""
+                )
+                return f"{lower}–{upper}" if upper else f"{lower}以上"
+        for tag in _tags(raw):
+            if "¥" in tag or "万円" in tag:
+                return tag
+    return ""
+
+
+def _job_facts(raw: Any) -> dict[str, Any]:
+    """Return display-safe normalized facts without exposing the raw posting."""
+    if not isinstance(raw, dict):
+        return {}
+
+    facts: dict[str, Any] = {}
+    salary_detail = raw.get("salary_detail")
+    if isinstance(salary_detail, str) and salary_detail.strip():
+        facts["salary_detail"] = salary_detail.strip()
+
+    requirements = raw.get("requirements")
+    if isinstance(requirements, dict):
+        normalized_requirements: dict[str, list[str]] = {}
+        for key in ("must", "nice_to_have"):
+            values = requirements.get(key)
+            if isinstance(values, list):
+                items = [
+                    str(value).strip()
+                    for value in values
+                    if isinstance(value, str) and value.strip()
+                ]
+                if items:
+                    normalized_requirements[key] = items
+        if normalized_requirements:
+            facts["requirements"] = normalized_requirements
+
+    work_style = raw.get("work_style")
+    if isinstance(work_style, dict):
+        normalized_work_style: dict[str, Any] = {}
+        remote = work_style.get("remote")
+        if remote in {"onsite", "hybrid", "remote", "unknown"}:
+            normalized_work_style["remote"] = remote
+        office_days = work_style.get("office_days_per_week")
+        if isinstance(office_days, int) and not isinstance(office_days, bool):
+            normalized_work_style["office_days_per_week"] = office_days
+        source_text = work_style.get("source_text")
+        if isinstance(source_text, str) and source_text.strip():
+            normalized_work_style["source_text"] = source_text.strip()
+        if normalized_work_style:
+            facts["work_style"] = normalized_work_style
+
+    languages = raw.get("language_requirements")
+    if isinstance(languages, list):
+        normalized_languages = [
+            str(value).strip()
+            for value in languages
+            if isinstance(value, str) and value.strip()
+        ]
+        if normalized_languages:
+            facts["language_requirements"] = normalized_languages
+
+    return facts
+
+
+def _job_remote(raw: Any) -> str:
     if not isinstance(raw, dict):
         return ""
-    value = raw.get("salary")
-    if isinstance(value, str) and value.strip():
-        return value.strip()
-    if isinstance(value, dict):
-        minimum = value.get("annual_minimum")
-        maximum = value.get("annual_maximum")
-        currency = str(value.get("currency") or "").upper()
-        if currency == "JPY" and isinstance(minimum, (int, float)):
-            lower = f"¥{minimum / 1_000_000:g}M"
-            upper = (
-                f"¥{maximum / 1_000_000:g}M"
-                if isinstance(maximum, (int, float))
-                else ""
-            )
-            return f"{lower}–{upper}" if upper else f"{lower}以上"
-    for tag in _tags(raw):
-        if "¥" in tag or "万円" in tag:
-            return tag
-    return ""
+    work_style = raw.get("work_style")
+    if not isinstance(work_style, dict):
+        return ""
+    remote = work_style.get("remote")
+    return remote if remote in {"onsite", "hybrid", "remote", "unknown"} else ""
+
+
+def _job_office_days(raw: Any) -> int | None:
+    if not isinstance(raw, dict):
+        return None
+    work_style = raw.get("work_style")
+    if not isinstance(work_style, dict):
+        return None
+    office_days = work_style.get("office_days_per_week")
+    if isinstance(office_days, int) and not isinstance(office_days, bool):
+        return office_days
+    return None
+
+
+def _job_status_bucket(job: dict[str, Any]) -> str:
+    if job.get("status") != "applied":
+        return str(job.get("status") or "")
+    if job.get("application_status") in CLOSED_APPLICATION_STATUSES:
+        return "application_closed"
+    return "application_active"
 
 
 def _value(values: dict[str, list[str]], key: str, default: str = "") -> str:
@@ -276,10 +368,13 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
 
     def load_job_detail(job_id: str) -> dict[str, Any]:
         job = workspace.show_job(job_id)
-        job["tags"] = _tags(job["raw"])
-        job["description"] = _description(job["raw"])
+        raw = job["raw"]
+        job["tags"] = _tags(raw)
+        job["description"] = _description(raw)
+        job.update(_job_facts(raw))
         job["application"] = workspace.application_for_job(job_id)
         job["match_analysis"] = workspace.latest_job_evaluation(job_id)
+        job["salary"] = _salary(raw)
         return job
 
     def load_application_detail(application_id: str) -> dict[str, Any]:
@@ -333,7 +428,10 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
     ) -> dict[str, Any]:
         all_jobs = workspace.list_jobs_for_dashboard()
         for job in all_jobs:
-            job["salary"] = _salary(job["raw"])
+            raw = job["raw"]
+            job["salary"] = _salary(raw)
+            job["remote"] = _job_remote(raw)
+            job["office_days_per_week"] = _job_office_days(raw)
             job.pop("raw", None)
         portals = sorted({job["portal"] for job in all_jobs})
         jobs = all_jobs
@@ -369,10 +467,11 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
                 if (job.get("rating") or 0) >= minimum_rating
             ]
         counts = {
-            key: sum(job["status"] == key for job in jobs) for key in STATUS_LABELS
+            key: sum(_job_status_bucket(job) == key for job in jobs)
+            for key in JOB_STATUS_BUCKETS
         }
         if status:
-            jobs = [job for job in jobs if job["status"] == status]
+            jobs = [job for job in jobs if _job_status_bucket(job) == status]
         selected_job = None
         if selected:
             try:

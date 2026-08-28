@@ -40,6 +40,9 @@ export type Job = {
   first_seen_at?: string;
   last_seen_at: string;
   salary?: string;
+  remote?: "onsite" | "hybrid" | "remote" | "unknown" | "";
+  office_days_per_week?: number | null;
+  application_status?: string | null;
   rating?: number | null;
   evaluation?: Evaluation | null;
 };
@@ -47,6 +50,17 @@ export type Job = {
 export type JobDetail = Job & {
   description?: string;
   tags: string[];
+  salary_detail?: string;
+  requirements?: {
+    must?: string[];
+    nice_to_have?: string[];
+  };
+  work_style?: {
+    remote?: "onsite" | "hybrid" | "remote" | "unknown";
+    office_days_per_week?: number;
+    source_text?: string;
+  };
+  language_requirements?: string[];
   application?: {
     id: string;
     company: string;

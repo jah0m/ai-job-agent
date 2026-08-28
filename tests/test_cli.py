@@ -12,6 +12,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from ai_job_search.cli import main
+from job_fixtures import normalized_job
 
 
 class CliEndToEndTests(unittest.TestCase):
@@ -133,22 +134,41 @@ Phone: 090-0000-0000 · Email: cli@example.invalid
 
     def test_complete_cli_lifecycle(self) -> None:
         self.run_cli("init")
-        jobs_file = self.base / "jobs.json"
-        jobs_file.write_text(
-            json.dumps(
-                {
-                    "results": [
-                        {
-                            "id": "ai-1",
-                            "title": "AI Engineer",
-                            "company": "Example KK",
-                            "url": "https://example.invalid/jobs/ai-1",
-                        }
-                    ]
-                }
-            ),
+        snapshot = self.home / "cache" / "ai-1.html"
+        snapshot.write_text(
+            "<html><h1>AI Engineer</h1><p>Public detail page.</p></html>",
             encoding="utf-8",
         )
+        source_metadata = self.run_cli(
+            "job",
+            "evidence",
+            "--portal",
+            "test",
+            "--url",
+            "https://example.invalid/jobs/ai-1",
+            "--snapshot",
+            str(snapshot),
+            "--retriever",
+            "test-search/1",
+        )
+        jobs_file = self.base / "jobs.json"
+        job = normalized_job(
+            self.home,
+            provider="test",
+            external_id="ai-1",
+            title="AI Engineer",
+            company="Example KK",
+            url="https://example.invalid/jobs/ai-1",
+        )
+        job["source"] = source_metadata
+        jobs_file.write_text(
+            json.dumps(job),
+            encoding="utf-8",
+        )
+        validation = self.run_cli(
+            "job", "validate", "--portal", "test", "--file", str(jobs_file)
+        )
+        self.assertTrue(validation["valid"])
         self.run_cli("job", "import", "--portal", "test", "--file", str(jobs_file))
         job = self.run_cli("job", "list")[0]
         evaluation_file = self.base / "evaluation.json"

@@ -7,7 +7,7 @@ const originalStdoutWrite = process.stdout.write;
 function searchCard(id: string, title: string): string {
   return `<li>
     <div data-entity-urn="urn:li:jobPosting:${id}">
-      <a class="base-card__full-link" href="https://www.linkedin.com/jobs/view/${id}"></a>
+      <a class="base-card__full-link" href="https://example.invalid/jobs/${id}"></a>
       <h3 class="base-search-card__title">${title}</h3>
     </div>
   </li>`;

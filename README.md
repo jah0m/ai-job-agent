@@ -70,7 +70,7 @@ Codex starts the dashboard in production mode. On first use:
 
 1. Complete the candidate profile.
 2. Set target roles, locations, work-style preferences, and hard constraints.
-3. Ask Codex to search and import an initial set of jobs.
+3. Ask Codex to search for jobs, or paste a public job URL for direct import.
 
 See the [first-use guide](docs/user/first-use-guide.md) for the complete workflow. Repository contributors should use the [development and setup guide](docs/developer/development.md).
 
@@ -87,7 +87,7 @@ See the [first-use guide](docs/user/first-use-guide.md) for the complete workflo
 ## Recommended workflow
 
 1. Maintain the candidate profile and search preferences in AI Job Agent.
-2. Ask Codex to search suitable portals and save the results.
+2. Ask Codex to search suitable portals, or paste a public job URL to import and save it directly.
 3. Review the original posting and persisted AI fit analysis.
 4. Create an application record for a role worth pursuing.
 5. Ask Codex to prepare 履歴書 and 職務経歴書 in the mutable current materials.
@@ -118,7 +118,7 @@ Application materials have explicit lifecycle boundaries:
 ## Documentation
 
 - **Users:** [first-use guide](docs/user/first-use-guide.md)
-- **Developers:** [development and setup](docs/developer/development.md), [architecture](docs/developer/architecture.md), and [storage model](docs/developer/storage-model.md)
+- **Developers:** [development and setup](docs/developer/development.md), [architecture](docs/developer/architecture.md), [job discovery and ingestion](docs/developer/job-ingestion.md), and [storage model](docs/developer/storage-model.md)
 - **AI agents:** [repository rules](AGENTS.md) and [agent workflows](.agents/README.md)
 
 ## Project boundaries

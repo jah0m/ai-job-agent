@@ -2,6 +2,7 @@
 export type Job = { id:string; title:string; company:string; tags:string[]; url:string; source:"tokyodev" };
 
 const BASE = "https://www.tokyodev.com";
+export const BASE_URL = BASE;
 const UA = "ai-job-agent/1.0 (+personal, read-only job research)";
 const entity = (s:string) => s.replace(/&amp;/g,"&").replace(/&quot;/g,'"').replace(/&#39;|&apos;/g,"'").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&#(\d+);/g,(_,n)=>String.fromCodePoint(Number(n)));
 const text = (s:string) => entity(s.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi," ").replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi," ").replace(/<[^>]+>/g," ")).replace(/\s+/g," ").trim();

@@ -17,7 +17,7 @@ describe("htmlFetch request timeout", () => {
       return new Response("<html></html>", { status: 200 });
     }) as unknown as typeof fetch;
 
-    await htmlFetch("https://www.linkedin.com/jobs-guest/jobs/api/x");
+    await htmlFetch("https://example.invalid/mock-request");
     expect(init?.signal).toBeInstanceOf(AbortSignal);
   });
 });

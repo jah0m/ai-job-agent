@@ -315,13 +315,14 @@ export function parseJobCards(html: string): JobCard[] {
 
 /** Parse a single job detail page's `<dl class="recruit-main-job-description__requirements">` dt/dd pairs. */
 function parseRequirementsDl(html: string): Record<string, string> {
-  const dlMatch = html.match(/class="recruit-main-job-description__requirements">([\s\S]*?)<\/dl>/)
+  const dlMatch = html.match(/<dl\b[^>]*class="[^"]*\brecruit-main-job-description__requirements\b[^"]*"[^>]*>([\s\S]*?)<\/dl>/i)
   const fields: Record<string, string> = {}
   if (!dlMatch) return fields
-  const pairRe = /<dt>([^<]*)<\/dt>\s*<dd[^>]*>([\s\S]*?)<\/dd>/g
+  const pairRe = /<dt\b[^>]*>([\s\S]*?)<\/dt>\s*<dd\b[^>]*>([\s\S]*?)<\/dd>/gi
   let m: RegExpExecArray | null
   while ((m = pairRe.exec(dlMatch[1])) !== null) {
-    fields[clean(m[1])] = clean(m[2])
+    const key = clean(m[1]).replace(/[\s\u3000]+/gu, "")
+    if (key) fields[key] = clean(m[2])
   }
   return fields
 }
@@ -335,6 +336,7 @@ export function parseJobDetail(html: string, id: string): JobDetail | null {
   const company = companyMatch ? clean(companyMatch[1]) || null : null
 
   const fields = parseRequirementsDl(html)
+  const salary = fields["年収"]?.replace(/[\s\u3000]+/gu, "") ?? null
 
   return {
     id,
@@ -343,11 +345,11 @@ export function parseJobDetail(html: string, id: string): JobDetail | null {
     location: fields["勤務地"] ?? null,
     date: null,
     url: `${BASE_URL}/search/detail/${id}/`,
-    salary: fields["年収"] ?? null,
+    salary,
     tags: [],
     description: fields["仕事内容"] ?? null,
     requiredSkills: fields["必要なスキル"] ?? null,
-    salaryDetail: fields["年収"] ?? null,
+    salaryDetail: salary,
     holidays: fields["休日・休暇"] ?? null,
     employmentType: null,
   }

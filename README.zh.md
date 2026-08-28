@@ -69,7 +69,7 @@ Codex 会以生产模式启动本地仪表盘。第一次使用时：
 
 1. 完善个人履历；
 2. 设置目标职种、地点、工作方式和不可妥协条件；
-3. 让 Codex 搜索并导入第一批岗位。
+3. 让 Codex 搜索岗位，或直接粘贴公开职位 URL 导入。
 
 完整说明见[首次使用指南](docs/user/first-use-guide.md)。参与开发请阅读[开发与环境配置](docs/developer/development.md)。
 
@@ -86,7 +86,7 @@ Codex 会以生产模式启动本地仪表盘。第一次使用时：
 ## 推荐工作流程
 
 1. 在 AI Job Agent 中维护个人履历和求职偏好。
-2. 让 Codex 从合适的平台搜索岗位并保存结果。
+2. 让 Codex 从合适的平台搜索岗位，或直接粘贴公开职位 URL 导入并保存。
 3. 查看原始职位和 AI 匹配分析，完成收藏或跳过。
 4. 为目标岗位创建申请记录。
 5. 让 Codex 准备履歴書和職務経歴書，在当前材料中预览和修改。
@@ -117,7 +117,7 @@ AI Job Agent 不会替你向公司投递，也不会把“生成材料”或“�
 ## 文档
 
 - **使用者**：[首次使用指南](docs/user/first-use-guide.md)
-- **开发者**：[开发与环境配置](docs/developer/development.md)、[系统架构](docs/developer/architecture.md)、[存储模型](docs/developer/storage-model.md)
+- **开发者**：[开发与环境配置](docs/developer/development.md)、[系统架构](docs/developer/architecture.md)、[岗位搜索与导入边界](docs/developer/job-ingestion.md)、[存储模型](docs/developer/storage-model.md)
 - **AI Agent**：[仓库规则](AGENTS.md)和 [Agent 工作流](.agents/README.md)
 
 ## 项目边界

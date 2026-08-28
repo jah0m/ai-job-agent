@@ -1,16 +1,122 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.invalid/ai-job-search/job-result.schema.json",
-  "title": "Normalized discovered job",
+  "title": "AI-normalized discovered job",
+  "description": "One normalized job produced from a fetched public detail-page snapshot. Optional page facts are omitted when unsupported.",
   "type": "object",
-  "additionalProperties": true,
+  "additionalProperties": false,
   "properties": {
-    "id": { "type": ["string", "number", "null"] },
-    "title": { "type": "string", "minLength": 1 },
-    "company": { "type": ["string", "null"] },
-    "location": { "type": ["string", "null"] },
-    "url": { "type": "string", "format": "uri" },
-    "postedAt": { "type": ["string", "null"] }
+    "schema_version": { "const": 2 },
+    "external_id": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "title": { "type": "string", "minLength": 1, "maxLength": 300 },
+    "company": { "type": "string", "minLength": 1, "maxLength": 300 },
+    "location": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 40,
+      "description": "Concise geographic label for display and filtering; exclude street addresses, building/floor details, and work-style conditions"
+    },
+    "url": { "type": "string", "format": "uri", "pattern": "^https?://" },
+    "posted_at": { "type": "string", "format": "date" },
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1200,
+      "description": "AI-authored concise summary of the role mission and core responsibilities; never the full posting text"
+    },
+    "salary": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "annual_minimum": { "type": "integer", "minimum": 0 },
+        "annual_maximum": { "type": "integer", "minimum": 0 },
+        "currency": { "type": "string", "pattern": "^[A-Z]{3}$" },
+        "source_text": { "type": "string", "minLength": 1, "maxLength": 500 }
+      },
+      "required": ["currency", "source_text"],
+      "anyOf": [
+        { "required": ["annual_minimum"] },
+        { "required": ["annual_maximum"] }
+      ]
+    },
+    "salary_detail": { "type": "string", "minLength": 1, "maxLength": 2000 },
+    "requirements": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "must": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 500 }
+        },
+        "nice_to_have": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 500 }
+        }
+      },
+      "minProperties": 1
+    },
+    "work_style": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "remote": {
+          "type": "string",
+          "enum": ["onsite", "hybrid", "remote", "unknown"]
+        },
+        "office_days_per_week": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "source_text": { "type": "string", "minLength": 1, "maxLength": 500 }
+      },
+      "required": ["remote", "source_text"]
+    },
+    "language_requirements": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1, "maxLength": 500 }
+    },
+    "tags": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1, "maxLength": 100 }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "provider": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "detail_url": { "type": "string", "format": "uri", "pattern": "^https?://" },
+        "retrieved_at": { "type": "string", "format": "date-time" },
+        "snapshot_path": { "type": "string", "minLength": 1, "maxLength": 1000 },
+        "snapshot_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "retriever": { "type": "string", "minLength": 1, "maxLength": 200 }
+      },
+      "required": ["provider", "detail_url", "retrieved_at", "snapshot_path", "snapshot_sha256"]
+    },
+    "field_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "company": { "$ref": "#/$defs/evidence" },
+        "location": { "$ref": "#/$defs/evidence" },
+        "posted_at": { "$ref": "#/$defs/evidence" },
+        "description": { "$ref": "#/$defs/evidence" },
+        "salary": { "$ref": "#/$defs/evidence" },
+        "salary_detail": { "$ref": "#/$defs/evidence" },
+        "requirements": { "$ref": "#/$defs/evidence" },
+        "work_style": { "$ref": "#/$defs/evidence" },
+        "language_requirements": { "$ref": "#/$defs/evidence" },
+        "tags": { "$ref": "#/$defs/evidence" }
+      }
+    }
   },
-  "required": ["title", "url"]
+  "$defs": {
+    "evidence": { "type": "string", "minLength": 1, "maxLength": 1000 }
+  },
+  "required": ["schema_version", "title", "url", "source"]
 }

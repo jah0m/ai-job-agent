@@ -37,6 +37,8 @@
   interview/
   exports/
   cache/
+    imported-details/
+    ai-normalized-import/
   trash/
   index.sqlite3
 ```
@@ -64,10 +66,16 @@ instead of being immediately erased. Each application also has an
 `interview/` directory for private preparation and outcome notes; the root
 `interview/` directory remains available for workspace-level material.
 
-The SQLite index also stores normalized public job-search results. Raw result
-JSON remains in the private workspace, and importing the same portal listing
-again updates its `last_seen_at` rather than creating a duplicate. A discovered
-job can be linked to a stable application record without losing its source data.
+The SQLite index also stores strictly validated, AI-normalized public job
+records. The CLI-fetched detail-page snapshot remains under the private
+workspace with a verified SHA-256 reference in the normalized source metadata.
+Fetched evidence and temporary AI-normalized import files remain separate under
+`cache/`; neither is a substitute for a successful `job import` transaction.
+Importing the same portal listing again updates its `last_seen_at` rather than
+creating a duplicate. Pre-v2 rows remain readable as legacy records. A
+discovered job can be linked to a stable application record without losing its
+source data. See [job discovery and ingestion](job-ingestion.md) for field and
+provenance rules.
 
 AI-authored discovered-job evaluations are append-only rows in the SQLite
 index. Each row retains hashes of the candidate profile, preferences, and job

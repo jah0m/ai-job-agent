@@ -61,9 +61,23 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_application_arguments(apply_command)
 
-    job = commands.add_parser("job", help="Import and triage portal search results")
+    job = commands.add_parser("job", help="Validate, import, and triage normalized jobs")
     job_commands = job.add_subparsers(dest="job_command", required=True)
-    job_import = job_commands.add_parser("import", help="Import a portal JSON result set")
+    job_evidence = job_commands.add_parser(
+        "evidence", help="Describe and hash a fetched detail-page snapshot"
+    )
+    job_evidence.add_argument("--portal", required=True)
+    job_evidence.add_argument("--url", required=True)
+    job_evidence.add_argument("--snapshot", required=True, type=Path)
+    job_evidence.add_argument("--retriever")
+    job_validate = job_commands.add_parser(
+        "validate", help="Validate AI-normalized job JSON without writing it"
+    )
+    job_validate.add_argument("--portal", required=True)
+    job_validate.add_argument("--file", required=True, type=Path)
+    job_import = job_commands.add_parser(
+        "import", help="Strictly validate and import AI-normalized job JSON"
+    )
     job_import.add_argument("--portal", required=True)
     job_import.add_argument("--file", required=True, type=Path)
     job_list = job_commands.add_parser("list", help="List discovered jobs")
@@ -203,6 +217,17 @@ def run(args: argparse.Namespace) -> Any:
             return workspace.list_applications()
         return workspace.show_application(args.application_id)
     if args.command == "job":
+        if args.job_command == "evidence":
+            return workspace.describe_job_evidence(
+                portal=args.portal,
+                url=args.url,
+                snapshot=args.snapshot,
+                retriever=args.retriever,
+            )
+        if args.job_command == "validate":
+            return workspace.import_jobs(
+                portal=args.portal, source_file=args.file, validate_only=True
+            )
         if args.job_command == "import":
             return workspace.import_jobs(portal=args.portal, source_file=args.file)
         if args.job_command == "list":

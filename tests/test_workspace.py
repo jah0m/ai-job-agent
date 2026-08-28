@@ -10,6 +10,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from ai_job_search.workspace import Workspace, WorkspaceError, slugify
+from job_fixtures import normalized_job
 
 JST = timezone(timedelta(hours=9))
 
@@ -68,7 +69,7 @@ Reliable software engineer.
 **Example Candidate
 Example Candidate**
 
-Phone: 090-0000-0000 · Email: candidate@example.invalid · [LinkedIn](https://www.linkedin.com/in/example) · [GitHub](https://github.com/example)
+Phone: 090-0000-0000 · Email: candidate@example.invalid · [Profile](https://example.invalid/profile) · [Code](https://example.invalid/code)
 
 ## 職務要約
 
@@ -439,19 +440,16 @@ Phone: 090-0000-0000 · Email: candidate@example.invalid · [LinkedIn](https://w
         search_file = Path(self.temporary.name) / "results.json"
         search_file.write_text(
             json.dumps(
-                {
-                    "results": [
-                        {
-                            "id": "42",
-                            "title": "Senior AI Engineer",
-                            "company": "Example KK",
-                            "location": "Tokyo",
-                            "url": "https://jobs.example.invalid/42#details",
-                            "postedAt": "2026-08-25",
-                        },
-                        {"title": "missing URL"},
-                    ]
-                }
+                normalized_job(
+                    self.root,
+                    provider="green",
+                    external_id="42",
+                    title="Senior AI Engineer",
+                    company="Example KK",
+                    location="Tokyo",
+                    url="https://jobs.example.invalid/42#details",
+                    posted_at="2026-08-25",
+                )
             ),
             encoding="utf-8",
         )
@@ -462,10 +460,10 @@ Phone: 090-0000-0000 · Email: candidate@example.invalid · [LinkedIn](https://w
         application = self.workspace.create_application_from_job(jobs[0]["id"])
 
         self.assertEqual(
-            first, {"portal": "green", "imported": 1, "updated": 0, "skipped": 1}
+            first, {"portal": "green", "imported": 1, "updated": 0, "skipped": 0}
         )
         self.assertEqual(
-            second, {"portal": "green", "imported": 0, "updated": 1, "skipped": 1}
+            second, {"portal": "green", "imported": 0, "updated": 1, "skipped": 0}
         )
         self.assertEqual(len(jobs), 1)
         self.assertNotIn("#details", jobs[0]["url"])
@@ -489,17 +487,15 @@ Phone: 090-0000-0000 · Email: candidate@example.invalid · [LinkedIn](https://w
         search_file = Path(self.temporary.name) / "evaluation-job.json"
         search_file.write_text(
             json.dumps(
-                {
-                    "results": [
-                        {
-                            "id": "ai-1",
-                            "title": "AI Engineer",
-                            "company": "Example KK",
-                            "location": "Tokyo",
-                            "url": "https://jobs.example.invalid/ai-1",
-                        }
-                    ]
-                }
+                normalized_job(
+                    self.root,
+                    provider="test",
+                    external_id="ai-1",
+                    title="AI Engineer",
+                    company="Example KK",
+                    location="Tokyo",
+                    url="https://jobs.example.invalid/ai-1",
+                )
             ),
             encoding="utf-8",
         )

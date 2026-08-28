@@ -6,6 +6,7 @@ state transitions.
 ```text
 Codex conversation
   -> .agents/skills/job-search (workflow and quality rules)
+  -> portal retriever -> page evidence -> AI field mapping
   -> job-search CLI -------------------------+
                                                |
 Browser -> React SPA -> FastAPI Web routes ----+-> Workspace methods
@@ -13,13 +14,24 @@ Browser -> React SPA -> FastAPI Web routes ----+-> Workspace methods
                                                        private files + SQLite index
 ```
 
-Codex interprets unstructured job postings, compares them with the candidate's
-facts, and drafts documents. The CLI does not pretend to be an AI model: it
-creates application identities, preserves source material, manages a mutable
-current-materials area, freezes immutable material packages and submissions,
-records status events and AI-authored job evaluations, exports metadata, and
-verifies hashes. The CLI validates and stores the structured evaluation; it
-does not generate the reasoning itself.
+Codex fetches or reads unstructured job postings and semantically maps source
+facts into a normalized job record with field-level evidence. The CLI does not
+pretend to be an AI model: it validates and persists that AI-normalized source
+record, creates application identities, preserves source material, manages a
+mutable current-materials area, freezes immutable material packages and
+submissions, records status events and AI-authored job evaluations, exports
+metadata, and verifies hashes. The CLI validates and stores the structured
+evaluation; it does not generate the reasoning itself.
+
+The discovered-job import boundary is strict. Portal CLIs retrieve public
+detail-page evidence into `.job-search/cache/`; `job evidence` canonicalizes
+the source URL and hashes that snapshot. AI emits only supported v2 fields,
+omitting page facts that are absent or unreliable. `job validate` and `job
+import` both run JSON Schema, provenance, and cross-field validation. Import
+validates the complete batch before beginning its database transaction.
+Existing pre-v2 rows remain readable as legacy data but cannot bypass the new
+import boundary. See [job discovery and ingestion](job-ingestion.md) for the
+retriever/AI responsibilities, normalization rules, and validation contract.
 
 The React dashboard reads JSON from FastAPI and sends user-authorized changes
 back through CSRF-protected Web routes. Both the Web routes and CLI call the

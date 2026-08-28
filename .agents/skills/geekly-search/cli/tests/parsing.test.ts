@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { parseJobCards, parseJobDetail, resolveJobType, resolveArea } from "../src/helpers";
+import { BASE_URL, parseJobCards, parseJobDetail, resolveJobType, resolveArea } from "../src/helpers";
 
 // Minimal card markup mirroring the real structure fetched live from
 // geekly.co.jp/search/joblist/ on 2026-07-26.
@@ -34,16 +34,16 @@ function card(id: string, title: string, company = "Acme Inc.", salary = "500～
 
 describe("parseJobCards", () => {
   test("extracts id, title, company, location, salary, tags, url", () => {
-    const html = card("722884", "Senior Engineer");
+    const html = card("999999901", "Senior Engineer");
     const [c] = parseJobCards(html);
-    expect(c.id).toBe("722884");
+    expect(c.id).toBe("999999901");
     expect(c.title).toBe("Senior Engineer");
     expect(c.company).toBe("Acme Inc.");
     expect(c.location).toBe("東京都渋谷区");
     expect(c.salary).toBe("500～800万円");
     expect(c.tags).toEqual(["リモートワーク可", "私服可"]);
     expect(c.date).toBeNull();
-    expect(c.url).toBe("https://www.geekly.co.jp/search/detail/722884/");
+    expect(c.url).toBe(`${BASE_URL}/search/detail/999999901/`);
   });
 
   test("one malformed card (no title) does not break parsing of the rest", () => {
@@ -89,7 +89,7 @@ describe("parseJobDetail", () => {
       "年収": "500～800万円",
       "休日・休暇": "完全週休二日制",
     });
-    const job = parseJobDetail(html, "722884");
+    const job = parseJobDetail(html, "999999901");
     expect(job?.title).toBe("Backend Engineer");
     expect(job?.company).toBe("Acme K.K.");
     expect(job?.location).toBe("東京都品川区");
@@ -98,7 +98,22 @@ describe("parseJobDetail", () => {
     expect(job?.description).toContain("and ship them");
     expect(job?.requiredSkills).toBe("Go, Python");
     expect(job?.holidays).toBe("完全週休二日制");
-    expect(job?.id).toBe("722884");
+    expect(job?.id).toBe("999999901");
+  });
+
+  test("accepts attributes on dt elements and normalizes salary label whitespace", () => {
+    const html = `<html><body>
+      <h1 class="recruit-head-contents__heading">Backend Engineer</h1>
+      <a href="/companys/data/1/?job_link=1" class="recruit-head-contents__company-name">Acme K.K.</a>
+      <dl class="recruit-main-job-description__requirements">
+        <dt class="head_tag">仕事内容</dt><dd class="content_text">Build APIs</dd>
+        <dt class="last-child">年　収</dt><dd class="content_text"><strong>600～1,500</strong>万円</dd>
+      </dl>
+    </body></html>`;
+    const job = parseJobDetail(html, "999999902");
+    expect(job?.description).toBe("Build APIs");
+    expect(job?.salary).toBe("600～1,500万円");
+    expect(job?.salaryDetail).toBe("600～1,500万円");
   });
 
   test("returns null when the heading is missing", () => {

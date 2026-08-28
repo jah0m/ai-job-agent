@@ -74,6 +74,25 @@ class SecurityGuardTests(unittest.TestCase):
         )
         self.assertTrue(any("unsupported" in error for error in run_checks(self.root)))
 
+    def test_live_urls_in_test_fixtures_fail(self) -> None:
+        tests = self.root / "tests"
+        tests.mkdir()
+        scheme = "https" + "://"
+        live_url = scheme + "jobs." + "example.com/roles/test-role"
+        (tests / "test_fixture.py").write_text(
+            f'JOB_URL = "{live_url}"\n', encoding="utf-8"
+        )
+        self.assertTrue(any("embeds a live URL" in error for error in run_checks(self.root)))
+
+    def test_reserved_test_urls_pass(self) -> None:
+        tests = self.root / "tests"
+        tests.mkdir()
+        (tests / "test_fixture.py").write_text(
+            'JOB_URL = "https://jobs.example.invalid/roles/test-role"\n',
+            encoding="utf-8",
+        )
+        self.assertEqual(run_checks(self.root), [])
+
 
 if __name__ == "__main__":
     unittest.main()

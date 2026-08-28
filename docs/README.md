@@ -17,6 +17,9 @@ mixed with implementation rules or private product planning.
   layout, mutable drafts, immutable packages, and submission snapshots.
 - [Development and setup](developer/development.md): dependencies, CLI usage,
   portal CLIs, frontend builds, local development, and tests.
+- [Job discovery and ingestion](developer/job-ingestion.md): the portal
+  retriever, page-evidence, AI mapping, schema validation, and atomic-import
+  boundary.
 
 ## AI agents
 

@@ -2,6 +2,7 @@ import {
   Check,
   ChevronDown,
   ExternalLink,
+  Info,
   LoaderCircle,
   RefreshCw,
   RotateCcw,
@@ -29,15 +30,20 @@ import {
   useToast,
 } from "../components/Layout";
 import { formatDate, recommendationLabel, recommendationTone } from "../format";
-import { AI_PROMPTS, buildJobAnalysisPrompt } from "../prompts";
+import {
+  AI_PROMPTS,
+  buildJobAnalysisPrompt,
+  buildJobRefreshPrompt,
+} from "../prompts";
 import type { Job, JobDetail, Labels, Session } from "../types";
 
 const JOB_STATUS_TABS = [
-  { key: "applied", label: "申请" },
+  { key: "application_active", label: "申请中" },
   { key: "saved", label: "收藏" },
   { key: "new", label: "新发现" },
   { key: "", label: "全部" },
   { key: "skipped", label: "跳过" },
+  { key: "application_closed", label: "已关闭" },
 ] as const;
 const JOB_SEARCH_DEBOUNCE_MS = 300;
 
@@ -49,21 +55,6 @@ function jobStatusTone(value: string): string {
       : value === "skipped"
         ? "neutral"
         : "warning";
-}
-
-function analysisStatus(evaluation: Job["evaluation"]): {
-  label: string;
-  tone: string;
-} {
-  if (!evaluation) return { label: "待分析", tone: "neutral" };
-  if (evaluation.stale) return { label: "已过期", tone: "warning" };
-  if (evaluation.confidence === "high")
-    return { label: "高置信", tone: "success" };
-  if (evaluation.confidence === "medium")
-    return { label: "中置信", tone: "info" };
-  if (evaluation.confidence === "low")
-    return { label: "低置信", tone: "warning" };
-  return { label: "已分析", tone: "info" };
 }
 
 function TableRating({ value }: { value?: number | null }) {
@@ -84,6 +75,25 @@ function TableRating({ value }: { value?: number | null }) {
       ))}
     </div>
   );
+}
+
+function workStyleSummary(
+  remote?: Job["remote"],
+  officeDays?: number | null,
+): string {
+  const remoteLabels = {
+    onsite: "到岗办公",
+    hybrid: "混合办公",
+    remote: "远程办公",
+    unknown: "办公方式待确认",
+  } as const;
+  const remoteLabel = remote ? remoteLabels[remote] : "";
+  const officeDaysLabel = officeDays ? `每周到岗 ${officeDays} 天` : "";
+  return [remoteLabel, officeDaysLabel].filter(Boolean).join(" · ");
+}
+
+function jobWorkStyle(job: Job): string {
+  return workStyleSummary(job.remote, job.office_days_per_week) || "未公开";
 }
 
 function SelectArrow() {
@@ -139,7 +149,6 @@ function JobsTable({
           <col className="job-col-location" />
           <col className="job-col-portal" />
           <col className="job-col-posted" />
-          <col className="job-col-analysis" />
         </colgroup>
         <thead>
           <tr>
@@ -151,7 +160,6 @@ function JobsTable({
             <th>地点</th>
             <th>平台</th>
             <th>发布日期</th>
-            <th>AI 分析</th>
           </tr>
         </thead>
         <tbody>
@@ -196,18 +204,16 @@ function JobsTable({
                 />
               </td>
               <td className="muted-cell">
-                <span
-                  className="truncate-cell"
-                  title={job.location || "未公开"}
+                <div
+                  className="job-location-cell"
+                  title={`${job.location || "地点未公开"} / ${jobWorkStyle(job)}`}
                 >
-                  {job.location || "未公开"}
-                </span>
+                  <strong>{job.location || "地点未公开"}</strong>
+                  <span>{jobWorkStyle(job)}</span>
+                </div>
               </td>
               <td className="muted-cell">{job.portal}</td>
               <td className="muted-cell">{formatDate(job.posted_at)}</td>
-              <td>
-                <StatusBadge {...analysisStatus(job.evaluation)} />
-              </td>
             </tr>
           ))}
         </tbody>
@@ -312,6 +318,11 @@ function preventBackgroundScroll(event: React.WheelEvent<HTMLElement>) {
 
 const DRAWER_ANIMATION_MS = 220;
 
+function workStyleLabel(workStyle: JobDetail["work_style"]): string {
+  if (!workStyle) return "";
+  return workStyleSummary(workStyle.remote, workStyle.office_days_per_week);
+}
+
 function JobDrawer({
   job,
   session,
@@ -336,10 +347,13 @@ function JobDrawer({
   >("idle");
   const [creating, setCreating] = useState(false);
   const [analysisPromptCopied, setAnalysisPromptCopied] = useState(false);
+  const [refreshPromptCopied, setRefreshPromptCopied] = useState(false);
   const copyResetTimerRef = useRef<number | null>(null);
+  const refreshCopyResetTimerRef = useRef<number | null>(null);
   const reviewRevisionRef = useRef(0);
   const isStatusLocked = status === "applied" || Boolean(job.application);
   const analysisPrompt = buildJobAnalysisPrompt(job);
+  const refreshPrompt = buildJobRefreshPrompt(job);
 
   useEffect(() => {
     if (copyResetTimerRef.current !== null) {
@@ -347,6 +361,11 @@ function JobDrawer({
       copyResetTimerRef.current = null;
     }
     setAnalysisPromptCopied(false);
+    if (refreshCopyResetTimerRef.current !== null) {
+      window.clearTimeout(refreshCopyResetTimerRef.current);
+      refreshCopyResetTimerRef.current = null;
+    }
+    setRefreshPromptCopied(false);
     reviewRevisionRef.current += 1;
     setReviewSaveState("idle");
     setStatus(job.status);
@@ -358,6 +377,9 @@ function JobDrawer({
     () => () => {
       if (copyResetTimerRef.current !== null) {
         window.clearTimeout(copyResetTimerRef.current);
+      }
+      if (refreshCopyResetTimerRef.current !== null) {
+        window.clearTimeout(refreshCopyResetTimerRef.current);
       }
     },
     [],
@@ -422,6 +444,27 @@ function JobDrawer({
     }
   };
 
+  const copyRefreshPrompt = async () => {
+    try {
+      await navigator.clipboard.writeText(refreshPrompt);
+      setRefreshPromptCopied(true);
+      showToast({
+        title: "更新 Prompt 已复制",
+        description: "请粘贴到 Codex 中重新获取并更新这个岗位。",
+        tone: "success",
+      });
+      if (refreshCopyResetTimerRef.current !== null) {
+        window.clearTimeout(refreshCopyResetTimerRef.current);
+      }
+      refreshCopyResetTimerRef.current = window.setTimeout(() => {
+        setRefreshPromptCopied(false);
+        refreshCopyResetTimerRef.current = null;
+      }, 2200);
+    } catch {
+      showToast({ title: "复制失败", description: "请检查浏览器剪贴板权限。" });
+    }
+  };
+
   const changeStatus = async (value: string) => {
     if (isStatusLocked || value === status) return;
     setStatus(value);
@@ -471,10 +514,20 @@ function JobDrawer({
         <div>
           <span className="drawer-kicker">职位详情</span>
           <h2>{job.title}</h2>
-          <a href={job.url} rel="noreferrer" target="_blank">
-            {job.company || "未知公司"}
-            <ExternalLink size={14} />
-          </a>
+          <div className="drawer-source-actions">
+            <a href={job.url} rel="noreferrer" target="_blank">
+              {job.company || "未知公司"}
+              <ExternalLink size={14} />
+            </a>
+            <button
+              className="drawer-refresh-button"
+              onClick={() => void copyRefreshPrompt()}
+              type="button"
+            >
+              <RefreshCw size={13} />
+              {refreshPromptCopied ? "已复制" : "重新获取岗位信息"}
+            </button>
+          </div>
         </div>
         <button
           aria-label="关闭详情"
@@ -488,9 +541,41 @@ function JobDrawer({
       <div className="drawer-meta">
         <span>{job.location || "地点未公开"}</span>
         <span>{job.portal}</span>
+        {job.posted_at ? <span>发布于 {formatDate(job.posted_at)}</span> : null}
         <span>更新于 {formatDate(job.last_seen_at)}</span>
       </div>
       <div className="drawer-body">
+        {job.salary || job.work_style || job.salary_detail ? (
+          <section className="drawer-section">
+            <h3>岗位信息</h3>
+            <dl className="job-facts-grid">
+              {job.salary ? (
+                <div>
+                  <dt>薪资范围</dt>
+                  <dd>{job.salary}</dd>
+                </div>
+              ) : null}
+              {job.work_style ? (
+                <div>
+                  <dt>工作方式</dt>
+                  <dd>{workStyleLabel(job.work_style)}</dd>
+                </div>
+              ) : null}
+            </dl>
+            {job.salary_detail ? (
+              <div className="job-detail-block">
+                <strong>薪资说明</strong>
+                <p>{job.salary_detail}</p>
+              </div>
+            ) : null}
+            {job.work_style?.source_text ? (
+              <div className="job-detail-block">
+                <strong>办公安排</strong>
+                <p>{job.work_style.source_text}</p>
+              </div>
+            ) : null}
+          </section>
+        ) : null}
         {job.description ? (
           <section className="drawer-section">
             <h3>职位描述</h3>
@@ -500,6 +585,43 @@ function JobDrawer({
                 {job.tags.map((tag) => (
                   <span key={tag}>{tag}</span>
                 ))}
+              </div>
+            ) : null}
+          </section>
+        ) : null}
+        {job.requirements?.must?.length ||
+        job.requirements?.nice_to_have?.length ||
+        job.language_requirements?.length ? (
+          <section className="drawer-section">
+            <h3>任职要求</h3>
+            {job.requirements?.must?.length ? (
+              <div className="job-requirement-group">
+                <strong>必须条件</strong>
+                <ul>
+                  {job.requirements.must.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            {job.requirements?.nice_to_have?.length ? (
+              <div className="job-requirement-group">
+                <strong>加分条件</strong>
+                <ul>
+                  {job.requirements.nice_to_have.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            {job.language_requirements?.length ? (
+              <div className="job-requirement-group">
+                <strong>语言要求</strong>
+                <ul>
+                  {job.language_requirements.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
               </div>
             ) : null}
           </section>
@@ -895,6 +1017,14 @@ export function DashboardPage({ session }: { session: Session }) {
         }
       />
       <Panel className="jobs-panel">
+        <div className="jobs-import-note">
+          <Info aria-hidden="true" size={16} />
+          <p>
+            <strong>添加岗位：</strong>
+            把公开的职位详情页 URL 发给 Codex，或让 Codex
+            按求职偏好搜索；整理后的岗位会出现在这里。
+          </p>
+        </div>
         <div className="toolbar-row">
           <label className="search-box">
             <Search size={18} />
@@ -990,7 +1120,7 @@ export function DashboardPage({ session }: { session: Session }) {
             description={
               data.total
                 ? "调整搜索词或筛选条件后再试。"
-                : "让 Codex 搜索岗位并保存，结果会自动出现在这里。"
+                : "把公开职位 URL 发给 Codex 导入，或让 Codex 搜索岗位。"
             }
           />
         )}

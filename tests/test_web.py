@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 
 from ai_job_search.web import create_app
 from ai_job_search.workspace import Workspace
+from job_fixtures import normalized_job
 
 
 class DashboardTests(unittest.TestCase):
@@ -39,20 +40,34 @@ class DashboardTests(unittest.TestCase):
             {"target_roles": ["Backend Engineer"], "locations": ["Tokyo"]}
         )
         preferences_path.write_text(json.dumps(preferences), encoding="utf-8")
-        payload = {
-            "results": [
-                {
-                    "id": "acme/backend",
-                    "title": "Backend Engineer",
-                    "company": "Acme KK",
-                    "location": "Tokyo",
-                    "url": "https://example.com/jobs/backend",
-                    "salary": "¥8.0M ~ ¥12.0M",
-                    "tags": ["Python", "AWS"],
-                    "description": "Build reliable services.",
-                }
-            ]
-        }
+        payload = normalized_job(
+            self.root,
+            provider="test",
+            external_id="acme/backend",
+            title="Backend Engineer",
+            company="Acme KK",
+            location="Tokyo",
+            url="https://example.invalid/jobs/backend",
+            salary={
+                "annual_minimum": 8_000_000,
+                "annual_maximum": 12_000_000,
+                "currency": "JPY",
+                "source_text": "¥8.0M ~ ¥12.0M",
+            },
+            tags=["Python", "AWS"],
+            description="Build reliable services.",
+            salary_detail="Annual salary includes a performance bonus.",
+            requirements={
+                "must": ["Production Python experience"],
+                "nice_to_have": ["AWS certification"],
+            },
+            work_style={
+                "remote": "hybrid",
+                "office_days_per_week": 2,
+                "source_text": "Two office days per week.",
+            },
+            language_requirements=["Business Japanese", "English reading"],
+        )
         source = Path(self.temporary.name) / "jobs.json"
         source.write_text(json.dumps(payload), encoding="utf-8")
         self.workspace.import_jobs(portal="test", source_file=source)
@@ -176,7 +191,9 @@ Phone: 090-0000-0000 · Email: web@example.invalid
         payload = jobs.json()
         self.assertEqual(payload["total"], 1)
         self.assertEqual(payload["jobs"][0]["title"], "Backend Engineer")
-        self.assertEqual(payload["jobs"][0]["salary"], "¥8.0M ~ ¥12.0M")
+        self.assertEqual(payload["jobs"][0]["salary"], "¥8M–¥12M")
+        self.assertEqual(payload["jobs"][0]["remote"], "hybrid")
+        self.assertEqual(payload["jobs"][0]["office_days_per_week"], 2)
         self.assertNotIn("raw", payload["jobs"][0])
 
     def test_jobs_api_filters_and_selects_detail(self) -> None:
@@ -206,6 +223,29 @@ Phone: 090-0000-0000 · Email: web@example.invalid
         self.assertEqual(payload["selected_job"]["id"], job_id)
         self.assertEqual(payload["selected_job"]["description"], "Build reliable services.")
         self.assertEqual(payload["selected_job"]["tags"], ["Python", "AWS"])
+        self.assertEqual(
+            payload["selected_job"]["salary_detail"],
+            "Annual salary includes a performance bonus.",
+        )
+        self.assertEqual(
+            payload["selected_job"]["requirements"],
+            {
+                "must": ["Production Python experience"],
+                "nice_to_have": ["AWS certification"],
+            },
+        )
+        self.assertEqual(
+            payload["selected_job"]["work_style"],
+            {
+                "remote": "hybrid",
+                "office_days_per_week": 2,
+                "source_text": "Two office days per week.",
+            },
+        )
+        self.assertEqual(
+            payload["selected_job"]["language_requirements"],
+            ["Business Japanese", "English reading"],
+        )
 
         enriched_filters = self.client.get(
             "/api/v1/jobs",
@@ -243,6 +283,28 @@ Phone: 090-0000-0000 · Email: web@example.invalid
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(self.workspace.show_job(job_id)["status"], "applied")
+
+    def test_application_tabs_distinguish_active_and_closed(self) -> None:
+        job_id = self.workspace.list_jobs()[0]["id"]
+        application = self.workspace.create_application_from_job(job_id)
+
+        active = self.client.get(
+            "/api/v1/jobs", params={"status": "application_active"}
+        ).json()
+        self.assertEqual([job["id"] for job in active["jobs"]], [job_id])
+        self.assertEqual(active["jobs"][0]["application_status"], "draft")
+        self.assertEqual(active["counts"]["application_active"], 1)
+        self.assertEqual(active["counts"]["application_closed"], 0)
+
+        self.workspace.update_status(application["id"], status="closed")
+
+        closed = self.client.get(
+            "/api/v1/jobs", params={"status": "application_closed"}
+        ).json()
+        self.assertEqual([job["id"] for job in closed["jobs"]], [job_id])
+        self.assertEqual(closed["jobs"][0]["application_status"], "closed")
+        self.assertEqual(closed["counts"]["application_active"], 0)
+        self.assertEqual(closed["counts"]["application_closed"], 1)
 
     def test_profile_page_and_api_read_private_workspace_profile(self) -> None:
         page = self.client.get("/profile")

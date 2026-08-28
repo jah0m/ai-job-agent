@@ -17,12 +17,12 @@ describe("request timeout", () => {
       return new Response("<html></html>", { status: 200 });
     }) as unknown as typeof fetch;
 
-    await htmlFetch("https://www.geekly.co.jp/x");
+    await htmlFetch("https://example.invalid/mock-request");
     expect(init?.signal).toBeInstanceOf(AbortSignal);
   });
 
   test("htmlFetch returns empty string on 404 instead of throwing", async () => {
     globalThis.fetch = (async () => new Response("", { status: 404 })) as unknown as typeof fetch;
-    expect(await htmlFetch("https://www.geekly.co.jp/x")).toBe("");
+    expect(await htmlFetch("https://example.invalid/mock-request")).toBe("");
   });
 });

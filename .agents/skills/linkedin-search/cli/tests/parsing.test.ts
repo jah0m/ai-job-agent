@@ -7,9 +7,9 @@ import { parseJobCards, parseJobDetail, extractDivContent } from "../src/helpers
 function searchCard(id: string, title: string, company = "Acme"): string {
   return `<li>
     <div data-entity-urn="urn:li:jobPosting:${id}">
-      <a class="base-card__full-link" href="https://www.linkedin.com/jobs/view/${id}"></a>
+      <a class="base-card__full-link" href="https://example.invalid/jobs/${id}"></a>
       <h3 class="base-search-card__title">${title}</h3>
-      <h4 class="base-search-card__subtitle"><a href="https://www.linkedin.com/company/acme">${company}</a></h4>
+      <h4 class="base-search-card__subtitle"><a href="https://example.invalid/company/test">${company}</a></h4>
     </div>
   </li>`;
 }
