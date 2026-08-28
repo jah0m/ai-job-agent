@@ -1,0 +1,1 @@
+{"name":"lapras-search-cli","version":"1.0.0","type":"module","private":true,"scripts":{"test":"bun test --timeout 30000"},"dependencies":{}}

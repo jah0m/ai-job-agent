@@ -1,0 +1,57 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.14"
+      - name: Python tests
+        run: python -m unittest discover -s tests -v
+      - name: Repository security guards
+        run: python tools/security_guards.py
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Check frontend
+        working-directory: frontend
+        run: npm run check
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+      - name: LinkedIn search tests
+        working-directory: .agents/skills/linkedin-search/cli
+        run: bun test ./tests
+      - name: Green search offline tests
+        working-directory: .agents/skills/green-search/cli
+        run: >-
+          bun test ./tests/cli-contract.test.ts ./tests/cli-flag-validation.test.ts
+          ./tests/parsing.test.ts ./tests/request-timeout.test.ts
+      - name: Geekly search offline tests
+        working-directory: .agents/skills/geekly-search/cli
+        run: >-
+          bun test ./tests/cli-contract.test.ts ./tests/cli-flag-validation.test.ts
+          ./tests/parsing.test.ts ./tests/request-timeout.test.ts
+      - name: TokyoDev search offline tests
+        working-directory: .agents/skills/tokyodev-search/cli
+        run: bun test ./tests
+      - name: LAPRAS search offline tests
+        working-directory: .agents/skills/lapras-search/cli
+        run: bun test ./tests
+      - name: HERP and HRMOS ATS search offline tests
+        working-directory: .agents/skills/ats-search/cli
+        run: bun test ./tests

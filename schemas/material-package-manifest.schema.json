@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/ai-job-search/material-package-manifest.schema.json",
+  "title": "Immutable application material package",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": 2 },
+    "kind": { "const": "material_package" },
+    "application_id": { "type": "string", "minLength": 1 },
+    "package_id": { "type": "string", "minLength": 1 },
+    "created_at": { "type": "string" },
+    "label": { "type": ["string", "null"] },
+    "template_revision": { "type": "string", "minLength": 1 },
+    "source_draft_id": { "type": "string", "minLength": 1 },
+    "source_draft_revision": { "type": "integer", "minimum": 0 },
+    "files": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/file" }
+    }
+  },
+  "required": ["schema_version", "kind", "application_id", "package_id", "created_at", "template_revision", "source_draft_id", "source_draft_revision", "files"],
+  "$defs": {
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "size": { "type": "integer", "minimum": 0 },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "role": { "enum": ["content_source", "editable_source", "deliverable", "supporting"] },
+        "purpose": { "enum": ["rirekisho", "shokumu_keirekisho", "employer_form", "portfolio", "other"] },
+        "origin": { "enum": ["codex_generated", "user_uploaded", "external_export", "employer_template", "unknown"] },
+        "media_type": { "type": "string" },
+        "source_path": { "type": ["string", "null"] }
+      },
+      "required": ["path", "size", "sha256", "role", "purpose", "origin", "media_type", "source_path"]
+    }
+  }
+}

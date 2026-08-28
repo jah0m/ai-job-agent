@@ -1,0 +1,4 @@
+interface:
+  display_name: "启动 AI Job Agent"
+  short_description: "以非开发模式启动并打开本地求职看板"
+  default_prompt: "Use $job-search-web to start AI Job Agent in production mode and open it."

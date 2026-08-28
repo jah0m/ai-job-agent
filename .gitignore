@@ -1,0 +1,13 @@
+/.job-search/
+/.private-docs/
+/web-staging/
+/.venv/
+/dist/
+/build/
+/src/ai_job_search/frontend_dist/
+node_modules/
+*.egg-info/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage

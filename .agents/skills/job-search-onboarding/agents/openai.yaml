@@ -1,0 +1,4 @@
+interface:
+  display_name: "求职首次设置"
+  short_description: "引导完成本地求职资料和目标偏好的首次设置"
+  default_prompt: "Use $job-search-onboarding to guide me through my first job-search setup."

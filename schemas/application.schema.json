@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/ai-job-search/application.schema.json",
+  "title": "Job application",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": 2 },
+    "id": { "type": "string", "minLength": 1 },
+    "company": { "type": "string", "minLength": 1 },
+    "role": { "type": "string", "minLength": 1 },
+    "status": { "type": "string" },
+    "created_at": { "type": "string" },
+    "updated_at": { "type": "string" },
+    "source": { "type": ["string", "null"] },
+    "job_url": { "type": ["string", "null"] },
+    "source_job_id": { "type": ["string", "null"] },
+    "draft": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": { "const": 2 },
+        "draft_id": { "type": "string", "minLength": 1 },
+        "status": { "enum": ["empty", "working"] },
+        "revision": { "type": "integer", "minimum": 0 },
+        "base_package_id": { "type": ["string", "null"] },
+        "relative_path": { "type": "string", "minLength": 1 },
+        "created_at": { "type": "string" },
+        "updated_at": { "type": "string" },
+        "label": { "type": ["string", "null"] },
+        "template_revision": { "type": "string", "minLength": 1 },
+        "validation": { "$ref": "draft-manifest.schema.json#/$defs/validation" }
+      },
+      "required": ["schema_version", "draft_id", "status", "revision", "relative_path", "created_at", "updated_at", "template_revision", "validation"]
+    }
+  },
+  "required": ["schema_version", "id", "company", "role", "status", "created_at", "updated_at"]
+}

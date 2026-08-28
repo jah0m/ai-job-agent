@@ -1,0 +1,4 @@
+import{expect,test}from"bun:test";import{detailSpec,parseList}from"../src/cli.ts";
+test("parses HERP",()=>{const h='<a class="requisition-list-card__header-anchor" href="/v1/acme/abc"><h2>Backend</h2></a><div class="requisition-list-card__text">Go role</div>';expect(parseList(h,"herp","acme")[0].title).toBe("Backend")});
+test("parses HRMOS",()=>{const h='<li class="pg-list-cassette"><a href="https://hrmos.co/pages/acme/jobs/1"><h2>Engineer</h2><span class="pg-list-cassette-body">TypeScript</span><ul><li>Remote</li></ul></a></li>';expect(parseList(h,"hrmos","acme")[0].tags).toContain("Remote")});
+test("blocks application and foreign URLs",()=>{expect(detailSpec("https://herp.careers/v1/acme/abc")?.provider).toBe("herp");expect(detailSpec("https://herp.careers/v1/acme/abc?viaCareers=x")).toBeNull();expect(detailSpec("https://evil.example/v1/acme/abc")).toBeNull()});

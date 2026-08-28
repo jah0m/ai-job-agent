@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/ai-job-search/job-result.schema.json",
+  "title": "Normalized discovered job",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "id": { "type": ["string", "number", "null"] },
+    "title": { "type": "string", "minLength": 1 },
+    "company": { "type": ["string", "null"] },
+    "location": { "type": ["string", "null"] },
+    "url": { "type": "string", "format": "uri" },
+    "postedAt": { "type": ["string", "null"] }
+  },
+  "required": ["title", "url"]
+}

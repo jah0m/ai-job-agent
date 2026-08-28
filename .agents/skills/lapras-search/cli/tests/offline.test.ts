@@ -1,0 +1,4 @@
+import{expect,test}from"bun:test";import{detailUrl,parseDetail,sitemapEntries}from"../src/cli.ts";
+test("parses public sitemap",()=>{expect(sitemapEntries('<url><loc>https://lapras.com/jobs/123</loc><lastmod>2026-08-25</lastmod></url>')[0]).toEqual({id:"123",url:"https://lapras.com/jobs/123",updatedAt:"2026-08-25"})});
+test("parses public detail and restricts URLs",()=>{const j=parseDetail('<title>Backend Engineer | LAPRAS</title><body><h1>Backend Engineer</h1>Python role</body>',"https://lapras.com/jobs/123");expect(j.title).toBe("Backend Engineer");expect(j.contentAvailable).toBe(true);expect(detailUrl("123")).toBe("https://lapras.com/jobs/123");expect(detailUrl("https://evil.example/jobs/123")).toBeNull()});
+test("marks the client-only shell honestly",()=>{expect(parseDetail('<html><div id="app"></div></html>',"https://lapras.com/jobs/123").contentAvailable).toBe(false)});

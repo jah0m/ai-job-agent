@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/ai-job-search/candidate-profile.schema.json",
+  "title": "Candidate profile",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": { "const": 2 },
+    "identity": { "type": "object" },
+    "contact": { "type": "object" },
+    "summary": { "type": "string" },
+    "experience": { "type": "array", "items": { "type": "object" } },
+    "education": { "type": "array", "items": { "type": "object" } },
+    "skills": { "type": "array", "items": { "type": "string" } },
+    "languages": { "type": "array", "items": { "type": "object" } },
+    "evidence": { "type": "array", "items": { "type": "object" } }
+  },
+  "required": ["schema_version", "identity", "contact", "experience", "skills"]
+}
