@@ -12,7 +12,7 @@ AI Job Agent 把分散在招聘网站、聊天记录和文件夹里的求职信�
 
 复制本仓库的 GitHub 页面地址，打开一个 Codex 任务并发送：
 
-> 帮我安装并启动 AI Job Agent：`<粘贴 GitHub 仓库地址>`
+> 帮我安装并启动 AI Job Agent：`https://github.com/jah0m/ai-job-agent`
 
 Codex 会检查 Python、Node.js/npm 和 Bun，克隆仓库并完成本地安装。安装结束后，可以在该项目中直接发送：
 
@@ -22,8 +22,10 @@ Codex 会检查 Python、Node.js/npm 和 Bun，克隆仓库并完成本地安装
 
 需要 Python 3.11 或更高版本、Node.js/npm，以及用于岗位搜索工具的 Bun。
 
+#### Windows（PowerShell）
+
 ```powershell
-git clone <GitHub 仓库地址> ai-job-agent
+git clone https://github.com/jah0m/ai-job-agent.git
 Set-Location ai-job-agent
 
 python -m pip install -e ".[web]"
@@ -36,7 +38,28 @@ Pop-Location
 & '.agents\skills\job-search-web\scripts\start_web.ps1'
 ```
 
-然后打开 `http://127.0.0.1:8765`。
+#### macOS（终端）
+
+确认系统中可以使用 `python3`、`npm` 和 `bun`，然后执行：
+
+```bash
+git clone https://github.com/jah0m/ai-job-agent.git
+cd ai-job-agent
+
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -e ".[web]"
+
+cd frontend
+npm install
+npm run build
+cd ..
+
+python -m uvicorn ai_job_search.web:create_app \
+  --factory --host 127.0.0.1 --port 8765
+```
+
+保持终端运行，然后打开 `http://127.0.0.1:8765`。以后再次启动时，激活虚拟环境并执行最后一条 `uvicorn` 命令即可。
 
 ## 第一次使用
 

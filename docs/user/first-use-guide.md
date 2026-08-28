@@ -13,7 +13,7 @@ Web 不会自动唤起 Codex，也不会替你向公司发送申请。“记录�
 
 如果项目还没有安装，复制本仓库的 GitHub 页面地址并在 Codex 中发送：
 
-> 帮我安装并启动 AI Job Agent：`<粘贴 GitHub 仓库地址>`
+> 帮我安装并启动 AI Job Agent：`https://github.com/jah0m/ai-job-agent`
 
 也可以按照 [README 中文版](../../README.zh.md#手动安装)中的命令手动安装。
 
