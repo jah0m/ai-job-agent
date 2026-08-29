@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "vitest";
 import { runSearch } from "../src/commands/search";
 
 const originalFetch = globalThis.fetch;

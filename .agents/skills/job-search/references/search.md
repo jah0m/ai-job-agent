@@ -4,13 +4,13 @@ Use the portal Skills for live discovery. Prefer low-volume, targeted searches
 that respect each site's documented limitations:
 
 ```powershell
-bun run .agents/skills/green-search/cli/src/cli.ts search -q "backend" -l "Tokyo" --limit 20 --format json
-bun run .agents/skills/geekly-search/cli/src/cli.ts search -q "AI" -l "remote" --limit 20 --format json
-bun run .agents/skills/linkedin-search/cli/src/cli.ts search -q "AI Engineer" -l "Tokyo, Japan" --jobage 14 --limit 20 --format json
-bun run .agents/skills/tokyodev-search/cli/src/cli.ts search --query "backend" --location "remote" --limit 20 --format json
-bun run .agents/skills/lapras-search/cli/src/cli.ts search --limit 10 --format json
-bun run .agents/skills/ats-search/cli/src/cli.ts search --provider herp --company <slug> --query "AI" --limit 20 --format json
-bun run .agents/skills/ats-search/cli/src/cli.ts search --provider hrmos --company <slug> --query "エンジニア" --limit 20 --format json
+npm run portal:green -- search -q "backend" -l "Tokyo" --limit 20 --format json
+npm run portal:geekly -- search -q "AI" -l "remote" --limit 20 --format json
+npm run portal:linkedin -- search -q "AI Engineer" -l "Tokyo, Japan" --jobage 14 --limit 20 --format json
+npm run portal:tokyodev -- search --query "backend" --location "remote" --limit 20 --format json
+npm run portal:lapras -- search --limit 10 --format json
+npm run portal:ats -- search --provider herp --company <slug> --query "AI" --limit 20 --format json
+npm run portal:ats -- search --provider hrmos --company <slug> --query "エンジニア" --limit 20 --format json
 ```
 
 Save JSON output under `.job-search/operations/<operation-id>/` as a discovery candidate. Before

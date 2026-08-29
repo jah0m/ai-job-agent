@@ -1,6 +1,8 @@
-import { join } from "path";
+import { spawn } from "node:child_process";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const CLI_PATH = join(import.meta.dir, "../src/cli.ts");
+const CLI_PATH = join(dirname(fileURLToPath(import.meta.url)), "../src/cli.ts");
 
 export interface CLIResult {
   stdout: string;
@@ -9,16 +11,25 @@ export interface CLIResult {
 }
 
 export async function runCLI(args: string[]): Promise<CLIResult> {
-  const proc = Bun.spawn(["bun", "run", CLI_PATH, ...args], {
-    stdout: "pipe",
-    stderr: "pipe",
+  const proc = spawn(process.execPath, ["--import", "tsx", CLI_PATH, ...args], {
+    stdio: ["ignore", "pipe", "pipe"],
   });
+  if (!proc.stdout || !proc.stderr) throw new Error("CLI process pipes were not created");
 
-  const [stdout, stderr, exitCode] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-    proc.exited,
-  ]);
+  const read = (stream: NodeJS.ReadableStream): Promise<string> =>
+    new Promise((resolve, reject) => {
+      let output = "";
+      stream.on("data", (chunk: Buffer | string) => {
+        output += chunk.toString();
+      });
+      stream.on("end", () => resolve(output));
+      stream.on("error", reject);
+    });
+  const exit = new Promise<number>((resolve, reject) => {
+    proc.once("error", reject);
+    proc.once("close", (code) => resolve(code ?? 1));
+  });
+  const [stdout, stderr, exitCode] = await Promise.all([read(proc.stdout), read(proc.stderr), exit]);
 
   return { stdout: stdout.trim(), stderr: stderr.trim(), exitCode };
 }

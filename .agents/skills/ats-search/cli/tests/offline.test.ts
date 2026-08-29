@@ -1,4 +1,4 @@
-import{expect,test}from"bun:test";import{detailSpec,parseDetail,parseList,PROVIDER_BASES}from"../src/cli.ts";
+import{expect,test}from"vitest";import{detailSpec,parseDetail,parseList,PROVIDER_BASES}from"../src/cli.ts";
 test("parses HERP",()=>{const h='<a class="requisition-list-card__header-anchor" href="/v1/acme/abc"><h2>Backend</h2></a><div class="requisition-list-card__text">Go role</div>';expect(parseList(h,"herp","acme")[0].title).toBe("Backend")});
 test("parses HRMOS",()=>{const url=`${PROVIDER_BASES.hrmos}/pages/test-company/jobs/test-job`;const h=`<li class="pg-list-cassette"><a href="${url}"><h2>Engineer</h2><span class="pg-list-cassette-body">TypeScript</span><ul><li>Remote</li></ul></a></li>`;expect(parseList(h,"hrmos","test-company")[0].tags).toContain("Remote")});
 test("blocks application and foreign URLs",()=>{const publicUrl=`${PROVIDER_BASES.herp}/v1/test-company/test-job`;expect(detailSpec(publicUrl)?.provider).toBe("herp");expect(detailSpec(`${publicUrl}?viaCareers=test`)).toBeNull();expect(detailSpec("https://example.invalid/v1/test-company/test-job")).toBeNull()});

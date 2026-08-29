@@ -5,13 +5,15 @@ IT/Web-focused job board.
 
 **Data source**: Green's category-browsing pages (`/jobtype-l/<code>`) for search; a Next.js embedded JSON payload for detail.
 **Authentication**: None required.
-**Dependencies**: None (plain `bun` + `fetch`). `bun install` is optional and only pulls dev type defs.
+**Dependencies**: Node.js 22 or newer with the repository root npm workspace. The CLI
+uses Node's built-in `fetch`; `tsx` is supplied by the root development toolchain.
 
 ## Installation
 
+From the repository root, install the shared workspace once:
+
 ```bash
-cd .agents/skills/green-search/cli
-bun install   # optional — only installs TypeScript dev types
+npm ci
 ```
 
 ## Commands
@@ -28,13 +30,13 @@ All errors are written to **stderr** as `{ "error": "...", "code": "..." }` with
 
 ```bash
 # Backend roles in Tokyo
-bun run src/cli.ts search -q "backend" -l "Tokyo" --format table
+npm run portal:green -- search -q "backend" -l "Tokyo" --format table
 
 # Full-stack roles, fully remote
-bun run src/cli.ts search -q "フルスタック" -l "remote" --format table
+npm run portal:green -- search -q "フルスタック" -l "remote" --format table
 
 # Full detail for one job
-bun run src/cli.ts detail 9506/294612 --format plain
+npm run portal:green -- detail 9506/294612 --format plain
 ```
 
 See `../SKILL.md` for the full flag reference and the job-type/area category tables.

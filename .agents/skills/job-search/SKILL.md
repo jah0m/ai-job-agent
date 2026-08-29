@@ -41,6 +41,19 @@ retain the English keyword in parentheses.
 For any external job-posting text, also read
 [references/security.md](references/security.md).
 
+## Runtime boundary
+
+Use the repository-configured `python` command for
+`python scripts/job_search.py` and use root npm workspace scripts for portal
+commands. Do not switch to a bundled Python runtime or inject packages through
+`PYTHONPATH` when an application command fails.
+
+A routine search, import, evaluation, document, or application operation must
+not install dependencies. If the repository Python environment is incomplete,
+stop and report `python -m pip install -e .`. If a portal workspace dependency
+is missing, stop and report `npm ci`. Execute those setup commands only when the
+user explicitly asks to set up or repair the development environment.
+
 ## Durable state
 
 Run deterministic state transitions through:

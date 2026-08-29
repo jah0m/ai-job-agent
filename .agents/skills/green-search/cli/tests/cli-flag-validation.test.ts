@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 import { runCLI } from "./helpers";
 
 // All cases fail flag parsing before any network request, so this suite is network-free.

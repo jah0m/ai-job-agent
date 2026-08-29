@@ -1,7 +1,7 @@
 {
   "name": "ai-job-agent-frontend",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host ::1",
@@ -24,7 +24,6 @@
   "devDependencies": {
     "@biomejs/biome": "^2.2.2",
     "@types/react": "^19.1.10",
-    "@types/react-dom": "^19.1.7",
-    "typescript": "^5.9.2"
+    "@types/react-dom": "^19.1.7"
   }
 }

@@ -5,11 +5,11 @@ description: Search publicly visible engineering jobs on LAPRAS (lapras.com) or 
 
 # LAPRAS Search
 
-Use the zero-dependency Bun CLI for public, read-only research.
+Use the bundled Node CLI for public, read-only research.
 
 ```powershell
-bun run .agents/skills/lapras-search/cli/src/cli.ts search --limit 10 --format table
-bun run .agents/skills/lapras-search/cli/src/cli.ts detail 12118 --format plain
+npm run portal:lapras -- search --limit 10 --format table
+npm run portal:lapras -- detail 12118 --format plain
 ```
 
 LAPRAS's internal search and detail APIs require login, while public job URLs

@@ -1,11 +1,13 @@
-#!/usr/bin/env bun
+#!/usr/bin/env tsx
 // Self-contained CLI for searching IT/Web jobs on Green (green-japan.com), Japan's
-// IT/Web-focused job board. No external CLI framework, so it runs anywhere `bun`
-// is available with zero install beyond the repo clone.
+// IT/Web-focused job board. No external CLI framework, so it runs through the
+// repository's Node/tsx command without a separate runtime.
 //
 // Green has no keyword-search endpoint that isn't robots.txt-disallowed, so
 // `search` maps --query to a job-type category code instead — see helpers.ts.
 
+import { resolve } from "node:path"
+import { fileURLToPath } from "node:url"
 import { runSearch, type SearchOpts } from "./commands/search.js"
 import { runDetail, type DetailOpts } from "./commands/detail.js"
 
@@ -38,8 +40,8 @@ function parseFlags(argv: string[]): Flags {
 const HELP = `green-cli — search IT/Web jobs on Green (green-japan.com, Japan)
 
 USAGE
-  bun run src/cli.ts search --query "<job type>" [flags]
-  bun run src/cli.ts detail <companyId/jobId|url> [--format json|plain]
+  npm run portal:green -- search --query "<job type>" [flags]
+  npm run portal:green -- detail <companyId/jobId|url> [--format json|plain]
 
 SEARCH FLAGS
   --query, -q <text>      REQUIRED. Green has no free-text search — this is matched
@@ -52,9 +54,9 @@ SEARCH FLAGS
   --format <fmt>          json (default) | table | plain.
 
 EXAMPLES
-  bun run src/cli.ts search -q "backend" -l "Tokyo" --format table
-  bun run src/cli.ts search -q "フルスタック" -l "remote" --format table
-  bun run src/cli.ts detail 4243/307860 --format plain
+  npm run portal:green -- search -q "backend" -l "Tokyo" --format table
+  npm run portal:green -- search -q "フルスタック" -l "remote" --format table
+  npm run portal:green -- detail 4243/307860 --format plain
 `
 
 async function main(): Promise<number> {
@@ -62,9 +64,14 @@ async function main(): Promise<number> {
   const flags = parseFlags(argv)
   const cmd = (flags._ as string[])[0]
 
-  if (!cmd || flags.help || flags.h) {
+  if (flags.help || flags.h) {
     process.stdout.write(HELP)
-    return cmd ? 0 : 1
+    return 0
+  }
+
+  if (!cmd) {
+    process.stdout.write(HELP)
+    return 1
   }
 
   if (cmd === "search") {
@@ -114,11 +121,18 @@ async function main(): Promise<number> {
   return 1
 }
 
-main()
-  .then((code) => process.exit(code))
-  .catch((e) => {
-    process.stderr.write(
-      JSON.stringify({ error: e instanceof Error ? e.message : String(e), code: "INTERNAL_ERROR" }) + "\n",
-    )
-    process.exit(1)
-  })
+function isMainModule(): boolean {
+  const entry = process.argv[1]
+  return entry !== undefined && resolve(entry) === fileURLToPath(import.meta.url)
+}
+
+if (isMainModule()) {
+  main()
+    .then((code) => process.exit(code))
+    .catch((e) => {
+      process.stderr.write(
+        JSON.stringify({ error: e instanceof Error ? e.message : String(e), code: "INTERNAL_ERROR" }) + "\n",
+      )
+      process.exit(1)
+    })
+}

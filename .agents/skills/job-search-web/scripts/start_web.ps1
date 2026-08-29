@@ -39,7 +39,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 if (-not (Test-Path -LiteralPath $frontendIndex -PathType Leaf)) {
-    throw 'The production frontend is missing. Run npm install and npm run build in the frontend directory.'
+    throw 'The production frontend is missing. Run npm ci and npm run build:frontend from the repository root.'
 }
 
 if (-not (Test-Path -LiteralPath $privateRoot -PathType Container)) {

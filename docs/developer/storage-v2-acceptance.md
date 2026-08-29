@@ -67,11 +67,10 @@ python -m mypy src/ai_job_search
 python -m coverage run --branch -m unittest discover -s tests -v
 python -m coverage report --show-missing --fail-under=80
 python tools/security_guards.py
-
-Push-Location frontend
-npm run check
-npm run build
-Pop-Location
+npm run check:frontend
+npm run build:frontend
+npm run typecheck:portals
+npm run test:portals
 ```
 
 Run every portal CLI offline suite listed in `.github/workflows/ci.yml`. All

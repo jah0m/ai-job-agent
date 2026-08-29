@@ -31,10 +31,8 @@ Codex 会使用 `job-search-web` Skill 以非开发模式在后台启动页面�
 
 ```powershell
 python -m pip install -e ".[web]"
-Push-Location frontend
-npm install
-npm run build
-Pop-Location
+npm ci
+npm run build:frontend
 & '.agents\skills\job-search-web\scripts\start_web.ps1'
 ```
 

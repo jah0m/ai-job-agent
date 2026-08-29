@@ -16,13 +16,13 @@ Copy this repository's GitHub page URL, open a Codex task, and send:
 
 > Install and start AI Job Agent: `https://github.com/jah0m/ai-job-agent`
 
-Codex checks Python, Node.js/npm, and Bun, clones the repository, and completes the local setup. After installation, open the project in Codex and send:
+Codex checks Python and Node.js/npm, clones the repository, and completes the local setup. After installation, open the project in Codex and send:
 
 > Start AI Job Agent
 
 ### Manual installation
 
-The project requires Python 3.11 or newer, Node.js/npm, and Bun for the portal-search tools.
+The project requires Python 3.11 or newer and Node.js 22 or newer with npm. The portal-search tools and frontend share the root npm workspace.
 
 #### Windows (PowerShell)
 
@@ -32,17 +32,15 @@ Set-Location ai-job-agent
 
 python -m pip install -e ".[web]"
 
-Push-Location frontend
-npm install
-npm run build
-Pop-Location
+npm ci
+npm run build:frontend
 
 & '.agents\skills\job-search-web\scripts\start_web.ps1'
 ```
 
 #### macOS (Terminal)
 
-Make sure `python3`, `npm`, and `bun` are available, then run:
+Make sure `python3`, Node.js 22 or newer, and `npm` are available, then run:
 
 ```bash
 git clone https://github.com/jah0m/ai-job-agent.git
@@ -52,10 +50,8 @@ python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -e ".[web]"
 
-cd frontend
-npm install
-npm run build
-cd ..
+npm ci
+npm run build:frontend
 
 python -m uvicorn ai_job_search.web:create_app \
   --factory --host 127.0.0.1 --port 8765

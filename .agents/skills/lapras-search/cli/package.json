@@ -1,1 +1,17 @@
-{"name":"lapras-search-cli","version":"1.0.0","type":"module","private":true,"scripts":{"test":"bun test --timeout 30000"},"dependencies":{}}
+{
+  "name": "lapras-search-cli",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "main": "src/cli.ts",
+  "bin": {
+    "lapras-search": "src/cli.ts"
+  },
+  "scripts": {
+    "start": "tsx src/cli.ts",
+    "test": "vitest run --testTimeout 30000",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

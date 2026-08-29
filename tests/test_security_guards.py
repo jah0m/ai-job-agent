@@ -25,7 +25,7 @@ class SecurityGuardTests(unittest.TestCase):
             self.root / ".agents" / "skills" / "example" / "cli" / "package.json"
         )
         self.manifest.write_text(
-            json.dumps({"name": "example", "scripts": {"test": "bun test"}}),
+            json.dumps({"name": "example", "scripts": {"test": "vitest run"}}),
             encoding="utf-8",
         )
 

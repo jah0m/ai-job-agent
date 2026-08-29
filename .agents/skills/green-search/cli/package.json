@@ -1,20 +1,17 @@
 {
   "name": "green-cli",
   "version": "1.0.0",
-  "description": "CLI for searching IT/Web jobs on Green (green-japan.com), Japan's IT-focused job board — no authentication, zero runtime dependencies.",
+  "description": "CLI for searching IT/Web jobs on Green (green-japan.com), Japan's IT-focused job board — no authentication or portal-specific runtime dependencies.",
   "type": "module",
   "main": "src/cli.ts",
   "bin": {
     "green-search": "src/cli.ts"
   },
   "scripts": {
-    "start": "bun run src/cli.ts",
-    "test": "bun test --timeout 30000",
-    "typecheck": "tsc --noEmit"
+    "start": "tsx src/cli.ts",
+    "test": "vitest run --testTimeout 30000",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {},
-  "devDependencies": {
-    "typescript": "^5.4.0",
-    "@types/bun": "1.3.14"
-  }
+  "devDependencies": {}
 }

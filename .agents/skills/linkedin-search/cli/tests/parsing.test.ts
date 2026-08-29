@@ -1,4 +1,4 @@
-import { describe, test, expect } from "bun:test";
+import { describe, test, expect } from "vitest";
 import { parseJobCards, parseJobDetail, extractDivContent } from "../src/helpers";
 
 // Minimal search-card markup: parseJobCards splits on the job-posting URN and

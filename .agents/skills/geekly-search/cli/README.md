@@ -5,13 +5,15 @@ agent / job board with a deep role and technology taxonomy.
 
 **Data source**: Geekly's `syo_id`/`tyu_id` category-filtered listing pages for search; server-rendered detail pages for `detail`.
 **Authentication**: None required.
-**Dependencies**: None (plain `bun` + `fetch`). `bun install` is optional and only pulls dev type defs.
+**Dependencies**: Node.js 22 or newer with the repository root npm workspace. The CLI
+uses Node's built-in `fetch`; `tsx` is supplied by the root development toolchain.
 
 ## Installation
 
+From the repository root, install the shared workspace once:
+
 ```bash
-cd .agents/skills/geekly-search/cli
-bun install   # optional — only installs TypeScript dev types
+npm ci
 ```
 
 ## Commands
@@ -28,13 +30,13 @@ All errors are written to **stderr** as `{ "error": "...", "code": "..." }` with
 
 ```bash
 # Python roles in Tokyo
-bun run src/cli.ts search -q "python" -l "Tokyo" --format table
+npm run portal:geekly -- search -q "python" -l "Tokyo" --format table
 
 # Full-stack candidate roles, remote-OK
-bun run src/cli.ts search -q "フルスタック" -l "remote" --format table
+npm run portal:geekly -- search -q "フルスタック" -l "remote" --format table
 
 # Full detail for one job
-bun run src/cli.ts detail 842632 --format plain
+npm run portal:geekly -- detail 842632 --format plain
 ```
 
 See `../SKILL.md` for the full flag reference and the role/technology category tables.

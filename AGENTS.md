@@ -37,6 +37,22 @@ Japanese mid-career market.
   behind the internal storage protocol rather than introducing facade/domain
   import cycles.
 
+## Runtime and dependency policy
+
+- Routine job-search operations must not install, upgrade, or relocate
+  dependencies. Use the repository-configured `python` command for application
+  commands and the root npm workspace scripts for portal and frontend commands.
+- Do not switch application commands to a Codex-bundled Python runtime, inject
+  ad hoc dependencies through `PYTHONPATH`, run `pip install --user` or
+  `pip install --target`, or create dependency runtimes under `.job-search/` or
+  a system temporary directory.
+- Run `npm install`, `npm ci`, or `pip install` only when the user explicitly
+  requests environment setup, dependency repair or maintenance, or an
+  implementation change that requires dependency installation.
+- When a declared dependency is unavailable during a routine operation, stop
+  and report the appropriate repository setup command instead of installing it:
+  `python -m pip install -e .` for Python or `npm ci` for Node.
+
 ## Project-grounded communication
 
 - Treat questions such as "what can you do?", "how do I use this?", or "what

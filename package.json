@@ -1,0 +1,38 @@
+{
+  "name": "ai-job-agent",
+  "private": true,
+  "version": "0.3.0",
+  "description": "Local-first job-search workspace with Python services and Node portal tools.",
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "frontend",
+    ".agents/skills/linkedin-search/cli",
+    ".agents/skills/green-search/cli",
+    ".agents/skills/geekly-search/cli",
+    ".agents/skills/tokyodev-search/cli",
+    ".agents/skills/lapras-search/cli",
+    ".agents/skills/ats-search/cli"
+  ],
+  "scripts": {
+    "portal:linkedin": "tsx .agents/skills/linkedin-search/cli/src/cli.ts",
+    "portal:green": "tsx .agents/skills/green-search/cli/src/cli.ts",
+    "portal:geekly": "tsx .agents/skills/geekly-search/cli/src/cli.ts",
+    "portal:tokyodev": "tsx .agents/skills/tokyodev-search/cli/src/cli.ts",
+    "portal:lapras": "tsx .agents/skills/lapras-search/cli/src/cli.ts",
+    "portal:ats": "tsx .agents/skills/ats-search/cli/src/cli.ts",
+    "test:portals": "npm run test --workspace=linkedin-cli && npm run test --workspace=green-cli && npm run test --workspace=geekly-cli && npm run test --workspace=tokyodev-search-cli && npm run test --workspace=lapras-search-cli && npm run test --workspace=ats-search-cli",
+    "typecheck:portals": "npm run typecheck --workspace=linkedin-cli && npm run typecheck --workspace=green-cli && npm run typecheck --workspace=geekly-cli && npm run typecheck --workspace=tokyodev-search-cli && npm run typecheck --workspace=lapras-search-cli && npm run typecheck --workspace=ats-search-cli",
+    "check:frontend": "npm run check --workspace=ai-job-agent-frontend",
+    "build:frontend": "npm run build --workspace=ai-job-agent-frontend",
+    "dev:frontend": "npm run dev --workspace=ai-job-agent-frontend",
+    "test": "npm run test:portals"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "tsx": "^4.19.3",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  }
+}

@@ -12,13 +12,13 @@ Start the repository's built React application through FastAPI on local port
 
 Do not use any of the following:
 
-- `npm run dev`, `vite`, or port 5173;
+- `npm run dev:frontend`, `npm run dev`, `vite`, or port 5173;
 - `npm run preview` or `vite preview`;
 - Uvicorn's `--reload` option;
 - `python scripts/job_search_web.py`, because that entrypoint currently enables
   `reload=True`.
 
-`npm run build` is allowed when the production frontend has not been built. It
+`npm run build:frontend` is allowed when the production frontend has not been built. It
 creates the static application served by FastAPI; it does not start a
 development server.
 
@@ -39,10 +39,8 @@ If `src/ai_job_search/frontend_dist/index.html` is missing, build the production
 frontend:
 
 ```powershell
-Push-Location frontend
-npm install
-npm run build
-Pop-Location
+npm ci
+npm run build:frontend
 ```
 
 Then run the checked-in launcher from the repository root:

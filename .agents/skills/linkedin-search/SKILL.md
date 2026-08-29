@@ -14,9 +14,9 @@ description: >
 # LinkedIn Search Skill
 
 Search live job listings from LinkedIn's public job board for **any country/region**
-(and remote). No authentication, no API key, and **zero runtime dependencies** — it runs
-with just `bun`. The location is always passed explicitly, so the same skill works for a
-forker in any market out of the box.
+(and remote). No authentication, no API key, and no portal runtime dependencies — it
+runs through the repository's Node/npm workspace. The location is always passed
+explicitly, so the same skill works for a forker in any market out of the box.
 
 > This is a country-agnostic worked example of the repo's job-portal-skill pattern.
 > LinkedIn's `jobs-guest` endpoints are global and the HTML parsing is country-independent;
@@ -39,7 +39,7 @@ Run it on your own responsibility.
 ### Search job listings
 
 ```bash
-bun run .agents/skills/linkedin-search/cli/src/cli.ts search --location "<place>" [flags]
+npm run portal:linkedin -- search --location "<place>" [flags]
 ```
 
 Key flags:
@@ -54,7 +54,7 @@ Key flags:
 ### Fetch full job detail
 
 ```bash
-bun run .agents/skills/linkedin-search/cli/src/cli.ts detail <id|url> [--format json|plain]
+npm run portal:linkedin -- detail <id|url> [--format json|plain]
 ```
 
 `id` is the job ID from `search` results (e.g. `4426311357`). You may also pass a full
@@ -65,16 +65,16 @@ seniority, employment type, job function, industries, and apply link.
 
 ```bash
 # Data engineer roles in Bengaluru, last 30 days
-bun run .agents/skills/linkedin-search/cli/src/cli.ts search -q "data engineer" -l "Bengaluru, Karnataka, India" --jobage 30 --format table
+npm run portal:linkedin -- search -q "data engineer" -l "Bengaluru, Karnataka, India" --jobage 30 --format table
 
 # Product manager roles in Berlin, remote
-bun run .agents/skills/linkedin-search/cli/src/cli.ts search -q "product manager" -l "Berlin, Germany" --remote remote --format table
+npm run portal:linkedin -- search -q "product manager" -l "Berlin, Germany" --remote remote --format table
 
 # Any role, fully remote
-bun run .agents/skills/linkedin-search/cli/src/cli.ts search -q "paralegal" -l "Remote" --format table
+npm run portal:linkedin -- search -q "paralegal" -l "Remote" --format table
 
 # Full details for a specific job
-bun run .agents/skills/linkedin-search/cli/src/cli.ts detail 4426311357 --format plain
+npm run portal:linkedin -- detail 4426311357 --format plain
 ```
 
 ## Output formats

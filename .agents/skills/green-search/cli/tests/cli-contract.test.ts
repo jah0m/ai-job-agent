@@ -1,7 +1,23 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 import { runCLI } from "./helpers";
 
 describe("Green CLI error contract", () => {
+  test.each(["--help", "-h"])("%s prints help and exits 0", async (flag) => {
+    const result = await runCLI([flag]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("USAGE");
+    expect(result.stderr).toBe("");
+  });
+
+  test("no arguments prints help and exits 1", async () => {
+    const result = await runCLI([]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toContain("USAGE");
+    expect(result.stderr).toBe("");
+  });
+
   test("search without a query fails with JSON on stderr, no network call", async () => {
     const result = await runCLI(["search"]);
 

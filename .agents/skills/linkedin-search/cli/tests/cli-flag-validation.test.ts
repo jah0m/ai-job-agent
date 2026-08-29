@@ -1,4 +1,4 @@
-import { describe, test, expect } from "bun:test";
+import { describe, test, expect } from "vitest";
 import { runCLI } from "./helpers";
 
 const LOCATION = "Copenhagen, Denmark";
@@ -12,6 +12,24 @@ function parsedStderr(stderr: string): { error?: string; code?: string } {
 }
 
 describe("LinkedIn CLI flag validation", () => {
+  describe("help exit codes", () => {
+    test.each(["--help", "-h"])("%s exits 0", async (flag) => {
+      const result = await runCLI([flag]);
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain("USAGE");
+      expect(result.stderr).toBe("");
+    });
+
+    test("no arguments prints help and exits 1", async () => {
+      const result = await runCLI([]);
+
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toContain("USAGE");
+      expect(result.stderr).toBe("");
+    });
+  });
+
   describe("--jobage NaN validation", () => {
     test("non-numeric string exits 1 with BAD_ARG", async () => {
       const result = await runCLI(["search", "-l", LOCATION, "--jobage", "foo"]);

@@ -14,8 +14,8 @@ description: >
 
 Search live IT job listings on Geekly, a Japan IT-focused career agent site
 with a deep taxonomy of both job roles and specific technologies/languages.
-No authentication, no API key, and **zero runtime dependencies** — it runs
-with just `bun`.
+No authentication, no API key, and no portal-specific runtime dependencies — it
+runs through the repository's Node/npm workspace.
 
 ## When to use this skill
 
@@ -60,7 +60,7 @@ listing pages expose no posting-age filter.
 ### Search job listings
 
 ```bash
-bun run .agents/skills/geekly-search/cli/src/cli.ts search --query "<role|tech>" [flags]
+npm run portal:geekly -- search --query "<role|tech>" [flags]
 ```
 
 Key flags:
@@ -74,7 +74,7 @@ Key flags:
 ### Fetch full job detail
 
 ```bash
-bun run .agents/skills/geekly-search/cli/src/cli.ts detail <id|url> [--format json|plain]
+npm run portal:geekly -- detail <id|url> [--format json|plain]
 ```
 
 `id` is the numeric ID from `search` results (e.g. `842632`), or a full
@@ -85,16 +85,16 @@ required skills, exact salary text, and holiday policy.
 
 ```bash
 # Python roles in Tokyo
-bun run .agents/skills/geekly-search/cli/src/cli.ts search -q "python" -l "Tokyo" --format table
+npm run portal:geekly -- search -q "python" -l "Tokyo" --format table
 
 # Full-stack candidate roles, remote-OK
-bun run .agents/skills/geekly-search/cli/src/cli.ts search -q "フルスタック" -l "remote" --format table
+npm run portal:geekly -- search -q "フルスタック" -l "remote" --format table
 
 # React roles in Osaka, JSON output
-bun run .agents/skills/geekly-search/cli/src/cli.ts search -q "react" -l "Osaka"
+npm run portal:geekly -- search -q "react" -l "Osaka"
 
 # Full detail for a specific listing
-bun run .agents/skills/geekly-search/cli/src/cli.ts detail 842632 --format plain
+npm run portal:geekly -- detail 842632 --format plain
 ```
 
 ## Output formats

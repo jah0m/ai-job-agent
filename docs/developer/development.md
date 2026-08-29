@@ -7,8 +7,7 @@ with the [first-use guide](../user/first-use-guide.md).
 
 - Python 3.11 or newer for the core CLI.
 - Optional Python Web dependencies for FastAPI and the local dashboard.
-- Node.js/npm for the React frontend.
-- Bun for the self-contained portal-search CLIs.
+- Node.js 22 or newer with npm for the React frontend and portal-search CLIs.
 
 An editable install provides the `job-search` command:
 
@@ -52,15 +51,17 @@ python scripts/job_search.py audit
 
 ## Portal CLIs
 
-Portal Skills live under `.agents/skills/<portal>/cli/` and use Bun:
+The Portal Skills live under `.agents/skills/<portal>/cli/` and share the root
+npm workspace. Install JavaScript dependencies once from the repository root:
 
 ```powershell
-bun run .agents/skills/green-search/cli/src/cli.ts search --help
-bun run .agents/skills/geekly-search/cli/src/cli.ts search --help
-bun run .agents/skills/linkedin-search/cli/src/cli.ts search --help
-bun run .agents/skills/tokyodev-search/cli/src/cli.ts search --help
-bun run .agents/skills/lapras-search/cli/src/cli.ts search --limit 10
-bun run .agents/skills/ats-search/cli/src/cli.ts search --help
+npm ci
+npm run portal:green -- search --help
+npm run portal:geekly -- search --help
+npm run portal:linkedin -- search --help
+npm run portal:tokyodev -- search --help
+npm run portal:lapras -- search --limit 10
+npm run portal:ats -- search --help
 ```
 
 ## Production dashboard
@@ -70,11 +71,9 @@ launcher:
 
 ```powershell
 python -m pip install -e ".[web]"
-Push-Location frontend
-npm install
-npm run check
-npm run build
-Pop-Location
+npm ci
+npm run check:frontend
+npm run build:frontend
 & '.agents\skills\job-search-web\scripts\start_web.ps1'
 ```
 
@@ -84,25 +83,24 @@ preview servers and does not enable Uvicorn auto-reload.
 ## Frontend development
 
 The frontend uses Vite, React, TypeScript, plain CSS, Radix UI primitives, and
-Biome. `npm run dev` starts Vite on port 5173 and proxies API requests to the
-FastAPI service on port 8765. `npm run build` writes the production SPA to
-`src/ai_job_search/frontend_dist/`, which FastAPI serves.
+Biome. `npm run dev:frontend` starts Vite on port 5173 and proxies API requests
+to the FastAPI service on port 8765. `npm run build:frontend` writes the
+production SPA to `src/ai_job_search/frontend_dist/`, which FastAPI serves.
 
 ## Verification
 
 ```powershell
 python -m unittest discover -s tests -v
 python tools/security_guards.py
-Push-Location frontend
-npm run check
-npm run build
-Pop-Location
+npm run check:frontend
+npm run build:frontend
 ```
 
-CI also runs the offline Bun suites for LinkedIn, Green, Geekly, TokyoDev,
-LAPRAS, and HERP/HRMOS under `.agents/skills/*/cli/`. These portal suites are
-independent of the Python Storage-v2 implementation and should remain in the
-release gate.
+CI runs the offline Node/Vitest suites and strict TypeScript checks for
+LinkedIn, Green, Geekly, TokyoDev, LAPRAS, and HERP/HRMOS under
+`.agents/skills/*/cli/` through the root `npm run test:portals` and
+`npm run typecheck:portals` commands. These portal suites are independent of
+the Python Storage-v2 implementation and should remain in the release gate.
 
 See [architecture](architecture.md) and the [storage model](storage-model.md)
 for further implementation context. The complete retriever → evidence → AI

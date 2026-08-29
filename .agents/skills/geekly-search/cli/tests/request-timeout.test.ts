@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "vitest";
 import { htmlFetch } from "../src/helpers";
 
 // A stalled upstream connection (accepted socket, no response) would otherwise

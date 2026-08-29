@@ -5,7 +5,8 @@ CLI for searching jobs on LinkedIn's public job listings, for **any country/regi
 
 **Data source**: LinkedIn `jobs-guest` endpoints (`seeMoreJobPostings/search` and `jobPosting/<id>`).
 **Authentication**: None required.
-**Dependencies**: None (plain `bun` + `fetch`). `bun install` is optional and only pulls dev type defs.
+**Dependencies**: Node.js 22 or newer with the repository root npm workspace. The CLI
+uses Node's built-in `fetch`; `tsx` is supplied by the root development toolchain.
 
 > **Personal use only.** This uses LinkedIn's public job pages; automated access is against
 > LinkedIn's Terms of Service. Keep volume low, don't use it commercially or for bulk data
@@ -13,12 +14,11 @@ CLI for searching jobs on LinkedIn's public job listings, for **any country/regi
 
 ## Installation
 
-```bash
-cd .agents/skills/linkedin-search/cli
-bun install   # optional — only installs TypeScript dev types
-```
+From the repository root, install the shared workspace once:
 
-The CLI runs without any install because it has zero runtime dependencies.
+```bash
+npm ci
+```
 
 ## Commands
 
@@ -34,16 +34,16 @@ All errors are written to **stderr** as `{ "error": "...", "code": "..." }` with
 
 ```bash
 # Software roles in Hyderabad, last 7 days
-bun run src/cli.ts search -q "backend engineer" -l "Hyderabad, Telangana, India" --jobage 7 --format table
+npm run portal:linkedin -- search -q "backend engineer" -l "Hyderabad, Telangana, India" --jobage 7 --format table
 
 # Design roles in London
-bun run src/cli.ts search -q "product designer" -l "London, United Kingdom" --format table
+npm run portal:linkedin -- search -q "product designer" -l "London, United Kingdom" --format table
 
 # Fully remote
-bun run src/cli.ts search -q "technical writer" -l "Remote" --remote remote --format table
+npm run portal:linkedin -- search -q "technical writer" -l "Remote" --remote remote --format table
 
 # Full detail for one job
-bun run src/cli.ts detail 4426311357 --format plain
+npm run portal:linkedin -- detail 4426311357 --format plain
 ```
 
 See `../SKILL.md` for the full flag reference and the Terms-of-Service note.

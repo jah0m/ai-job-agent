@@ -16,13 +16,13 @@ AI Job Agent 把分散在招聘网站、聊天记录和文件夹里的求职信�
 
 > 帮我安装并启动 AI Job Agent：`https://github.com/jah0m/ai-job-agent`
 
-Codex 会检查 Python、Node.js/npm 和 Bun，克隆仓库并完成本地安装。安装结束后，可以在该项目中直接发送：
+Codex 会检查 Python 和 Node.js/npm，克隆仓库并完成本地安装。安装结束后，可以在该项目中直接发送：
 
 > 启动 AI Job Agent
 
 ### 手动安装
 
-需要 Python 3.11 或更高版本、Node.js/npm，以及用于岗位搜索工具的 Bun。
+需要 Python 3.11 或更高版本，以及 Node.js 22 或更高版本和 npm。岗位搜索工具与前端共用根目录 npm workspace。
 
 #### Windows（PowerShell）
 
@@ -32,17 +32,15 @@ Set-Location ai-job-agent
 
 python -m pip install -e ".[web]"
 
-Push-Location frontend
-npm install
-npm run build
-Pop-Location
+npm ci
+npm run build:frontend
 
 & '.agents\skills\job-search-web\scripts\start_web.ps1'
 ```
 
 #### macOS（终端）
 
-确认系统中可以使用 `python3`、`npm` 和 `bun`，然后执行：
+确认系统中可以使用 `python3`、Node.js 22 或更高版本和 `npm`，然后执行：
 
 ```bash
 git clone https://github.com/jah0m/ai-job-agent.git
@@ -52,10 +50,8 @@ python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -e ".[web]"
 
-cd frontend
-npm install
-npm run build
-cd ..
+npm ci
+npm run build:frontend
 
 python -m uvicorn ai_job_search.web:create_app \
   --factory --host 127.0.0.1 --port 8765

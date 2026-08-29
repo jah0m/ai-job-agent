@@ -1,4 +1,4 @@
-import { describe, test, expect } from "bun:test";
+import { describe, test, expect } from "vitest";
 import { BASE_URL, parseJobCards, parseJobDetail, resolveJobType, resolveArea } from "../src/helpers";
 
 // Minimal card markup mirroring the real structure fetched live from

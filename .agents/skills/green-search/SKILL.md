@@ -13,7 +13,8 @@ description: >
 
 Search live IT/Web engineering job listings on Green, one of Japan's largest
 IT/Web-focused job boards (28,600+ listings at last check). No authentication,
-no API key, and **zero runtime dependencies** — it runs with just `bun`.
+no API key, and no portal runtime dependencies — it runs through the repository's
+Node/npm workspace.
 
 ## When to use this skill
 
@@ -55,7 +56,7 @@ category pages expose no posting-age filter.
 ### Search job listings
 
 ```bash
-bun run .agents/skills/green-search/cli/src/cli.ts search --query "<job type>" [flags]
+npm run portal:green -- search --query "<job type>" [flags]
 ```
 
 Key flags:
@@ -69,7 +70,7 @@ Key flags:
 ### Fetch full job detail
 
 ```bash
-bun run .agents/skills/green-search/cli/src/cli.ts detail <companyId/jobId|url> [--format json|plain]
+npm run portal:green -- detail <companyId/jobId|url> [--format json|plain]
 ```
 
 `id` is `<companyId>/<jobId>` from `search` results (e.g. `9506/294612`), or a
@@ -82,16 +83,16 @@ salary breakdown, employment type, and tech tags.
 
 ```bash
 # Backend roles in Tokyo
-bun run .agents/skills/green-search/cli/src/cli.ts search -q "backend" -l "Tokyo" --format table
+npm run portal:green -- search -q "backend" -l "Tokyo" --format table
 
 # Full-stack roles, fully remote
-bun run .agents/skills/green-search/cli/src/cli.ts search -q "フルスタック" -l "remote" --format table
+npm run portal:green -- search -q "フルスタック" -l "remote" --format table
 
 # Infrastructure roles in Osaka, JSON output
-bun run .agents/skills/green-search/cli/src/cli.ts search -q "infra" -l "Osaka"
+npm run portal:green -- search -q "infra" -l "Osaka"
 
 # Full detail for a specific listing
-bun run .agents/skills/green-search/cli/src/cli.ts detail 9506/294612 --format plain
+npm run portal:green -- detail 9506/294612 --format plain
 ```
 
 ## Output formats
