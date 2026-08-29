@@ -7,7 +7,6 @@ import sqlite3
 from pathlib import Path
 from typing import Any, cast
 
-from ..markdown_contract import TEMPLATE_REVISION
 from .common import (
     DEFAULT_STATUS,
     DOMAIN_SCHEMA_VERSION,
@@ -120,12 +119,6 @@ class ApplicationStorageMixin(StorageDatabase):
                 "VALUES(?,?,0,'empty',?,?)",
                 (chosen, draft_id, created, created),
             )
-            empty_validation = self._validate_file_map({})
-            connection.execute(
-                "INSERT INTO draft_revisions(application_id,revision,base_package_id,label,"
-                "template_revision,validation_json,created_at,actor) VALUES(?,0,NULL,NULL,?,?,?,?)",
-                (chosen, TEMPLATE_REVISION, canonical_json(empty_validation), created, "system"),
-            )
             record: dict[str, Any] = {
                 "schema_version": DOMAIN_SCHEMA_VERSION,
                 "id": chosen,
@@ -194,6 +187,112 @@ class ApplicationStorageMixin(StorageDatabase):
                 "ORDER BY a.created_at DESC"
             ).fetchall()
         return [dict(row) for row in rows]
+
+    def delete_application(self, application_id: str) -> dict[str, Any]:
+        """Delete an application only while it is still an empty draft shell.
+
+        Application events are intentionally not part of the guard: the
+        creation event is useful history while the shell exists, but it does
+        not represent a material or submission claim. Immutable draft
+        revisions, material packages, and submissions must remain durable.
+        """
+
+        self.require_initialized()
+        with self.connect() as connection:
+            # Guard and cascade must observe one stable application state; do
+            # not let a concurrent draft save slip in between the checks and
+            # the physical delete.
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                "SELECT id,source_job_id FROM applications WHERE id=?", (application_id,)
+            ).fetchone()
+            if row is None:
+                raise WorkspaceError(f"Unknown application: {application_id}")
+
+            package_count = connection.execute(
+                "SELECT COUNT(*) AS count FROM material_packages WHERE application_id=?",
+                (application_id,),
+            ).fetchone()["count"]
+            if package_count:
+                raise WorkspaceError(
+                    "Cannot delete application with material packages"
+                )
+
+            submission_count = connection.execute(
+                "SELECT COUNT(*) AS count FROM submissions WHERE application_id=?",
+                (application_id,),
+            ).fetchone()["count"]
+            if submission_count:
+                raise WorkspaceError(
+                    "Cannot delete application with submission records"
+                )
+
+            revision_rows = connection.execute(
+                "SELECT id,revision,actor FROM draft_revisions WHERE application_id=?",
+                (application_id,),
+            ).fetchall()
+            file_count = connection.execute(
+                "SELECT COUNT(*) AS count FROM draft_revision_files f "
+                "JOIN draft_revisions r ON r.id=f.draft_revision_id "
+                "WHERE r.application_id=?",
+                (application_id,),
+            ).fetchone()["count"]
+            if file_count:
+                raise WorkspaceError("Cannot delete application with draft material files")
+
+            # Older workspaces persisted a system-owned revision 0 when the
+            # draft shell was created. It contains no material and is safe to
+            # remove alongside that shell; every later revision remains an
+            # immutable history record and blocks physical application delete.
+            legacy_empty_revision = (
+                len(revision_rows) == 1
+                and int(revision_rows[0]["revision"]) == 0
+                and revision_rows[0]["actor"] == "system"
+            )
+            if revision_rows and not legacy_empty_revision:
+                raise WorkspaceError("Cannot delete application with draft history")
+
+            draft = connection.execute(
+                "SELECT current_revision,status FROM drafts WHERE application_id=?",
+                (application_id,),
+            ).fetchone()
+            if draft is None:
+                raise WorkspaceError("Cannot delete application with missing draft shell")
+            if int(draft["current_revision"]) != 0 or draft["status"] != "empty":
+                raise WorkspaceError("Cannot delete application with current material content")
+
+            # Keep the exception for a legacy technical revision narrow: the
+            # immutable-revision trigger only permits its cascade while this
+            # transaction carries the explicit deletion intent.
+            connection.execute(
+                "INSERT OR REPLACE INTO application_delete_intents(application_id,created_at) "
+                "VALUES(?,?)",
+                (application_id, now_iso()),
+            )
+            deleted = connection.execute(
+                "DELETE FROM applications WHERE id=?", (application_id,)
+            )
+            if deleted.rowcount != 1:
+                raise WorkspaceError(f"Unknown application: {application_id}")
+            connection.execute(
+                "DELETE FROM application_delete_intents WHERE application_id=?",
+                (application_id,),
+            )
+
+            source_job_id = row["source_job_id"]
+            if source_job_id:
+                # Creating an application marks its source job as applied;
+                # deleting the empty shell makes that saved job available for
+                # a future application attempt again.
+                connection.execute(
+                    "UPDATE jobs SET status='saved' WHERE id=?", (source_job_id,)
+                )
+
+        return {
+            "application_id": application_id,
+            "source_job_id": row["source_job_id"],
+            "deleted": True,
+        }
 
     def show_application(self, application_id: str) -> dict[str, Any]:
         row = self._application_row(application_id)

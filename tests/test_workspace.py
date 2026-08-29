@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 import sys
 import tempfile
 import unittest
@@ -191,6 +192,116 @@ Phone: 090-0000-0000 · Email: candidate@example.invalid · [Profile](https://ex
         self.assertEqual(second["id"], first["id"] + "-2")
         self.assertEqual(len(self.workspace.list_applications()), 2)
         self.assertTrue((self.root / first["source"]).is_file())
+
+    def test_empty_application_can_be_deleted_without_blocking_creation_event(self) -> None:
+        application = self.create_application()
+
+        with self.workspace.connect() as connection:
+            self.assertEqual(
+                connection.execute(
+                    "SELECT COUNT(*) FROM draft_revisions WHERE application_id=?",
+                    (application["id"],),
+                ).fetchone()[0],
+                0,
+            )
+            self.assertEqual(
+                connection.execute(
+                    "SELECT COUNT(*) FROM application_events WHERE application_id=?",
+                    (application["id"],),
+                ).fetchone()[0],
+                1,
+            )
+
+        deleted = self.workspace.delete_application(application["id"])
+
+        self.assertTrue(deleted["deleted"])
+        self.assertEqual(self.workspace.list_applications(), [])
+        with self.workspace.connect() as connection:
+            for table in ("applications", "drafts", "application_events"):
+                self.assertEqual(
+                    connection.execute(
+                        f"SELECT COUNT(*) FROM {table} WHERE "
+                        f"{'application_id' if table != 'applications' else 'id'}=?",
+                        (application["id"],),
+                    ).fetchone()[0],
+                    0,
+                )
+
+    def test_legacy_empty_system_revision_can_be_deleted(self) -> None:
+        application = self.create_application()
+        with self.workspace.connect() as connection:
+            revision_id = connection.execute(
+                "INSERT INTO draft_revisions(application_id,revision,base_package_id,label,"
+                "template_revision,validation_json,created_at,actor) "
+                "VALUES(?,0,NULL,NULL,?,?,?,?)",
+                (
+                    application["id"],
+                    "legacy-template",
+                    "{}",
+                    "2026-08-29T00:00:00+09:00",
+                    "system",
+                ),
+            ).lastrowid
+            with self.assertRaises(sqlite3.IntegrityError):
+                connection.execute(
+                    "DELETE FROM draft_revisions WHERE id=?", (revision_id,)
+                )
+
+        deleted = self.workspace.delete_application(application["id"])
+
+        self.assertTrue(deleted["deleted"])
+        self.assertEqual(self.workspace.list_applications(), [])
+
+    def test_initialize_migrates_legacy_revision_delete_trigger(self) -> None:
+        application = self.create_application()
+        with self.workspace.connect() as connection:
+            connection.execute(
+                "INSERT INTO draft_revisions(application_id,revision,base_package_id,label,"
+                "template_revision,validation_json,created_at,actor) "
+                "VALUES(?,0,NULL,NULL,?,?,?,?)",
+                (
+                    application["id"],
+                    "legacy-template",
+                    "{}",
+                    "2026-08-29T00:00:00+09:00",
+                    "system",
+                ),
+            )
+            connection.execute("DROP TRIGGER immutable_draft_revisions_delete")
+            connection.execute(
+                "CREATE TRIGGER immutable_draft_revisions_delete "
+                "BEFORE DELETE ON draft_revisions "
+                "BEGIN SELECT RAISE(ABORT,'draft revision is immutable'); END"
+            )
+
+        self.workspace.initialize()
+
+        self.workspace.delete_application(application["id"])
+        self.assertEqual(self.workspace.list_applications(), [])
+
+    def test_delete_rejects_saved_then_cleared_draft_history(self) -> None:
+        application = self.create_application()
+        saved = self.save_valid_draft(application["id"])
+        self.workspace.discard_draft(
+            application["id"], expected_revision=saved["revision"], actor="web"
+        )
+
+        with self.assertRaisesRegex(WorkspaceError, r"draft (history|material files)"):
+            self.workspace.delete_application(application["id"])
+        self.assertEqual(len(self.workspace.list_applications()), 1)
+
+    def test_delete_rejects_material_packages_and_submissions(self) -> None:
+        packaged = self.create_application()
+        self.package_valid_materials(packaged["id"])
+        with self.assertRaisesRegex(WorkspaceError, "material packages"):
+            self.workspace.delete_application(packaged["id"])
+
+        submitted = self.create_application()
+        self.workspace.submit(
+            submitted["id"], evidence_level="status_only", channel="other"
+        )
+        with self.assertRaisesRegex(WorkspaceError, "submission records"):
+            self.workspace.delete_application(submitted["id"])
 
     def test_current_materials_packages_and_submission(self) -> None:
         application = self.create_application()

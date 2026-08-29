@@ -728,6 +728,15 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
             status_code=303,
         )
 
+    @app.post("/applications/{application_id}/delete")
+    async def delete_application(application_id: str, request: Request) -> RedirectResponse:
+        await form_values(request)
+        try:
+            workspace.delete_application(application_id)
+        except WorkspaceError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return RedirectResponse(url="/applications", status_code=303)
+
     @app.post("/applications/{application_id}/draft/upload")
     async def upload_application_draft(application_id: str, request: Request) -> RedirectResponse:
         try:

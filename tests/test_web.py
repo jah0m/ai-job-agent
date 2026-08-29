@@ -436,6 +436,62 @@ Phone: 090-0000-0000 · Email: web@example.invalid
         )
         self.assertEqual(duplicate.status_code, 400)
 
+    def test_empty_application_delete_route_requires_csrf_and_reopens_saved_job(self) -> None:
+        job_id = self.workspace.list_jobs()[0]["id"]
+        token = self.csrf_token()
+        created = self.client.post(
+            f"/jobs/{job_id}/application",
+            data={"csrf_token": token},
+            follow_redirects=False,
+        )
+        self.assertEqual(created.status_code, 303)
+        application = self.workspace.list_applications()[0]
+
+        missing_csrf = self.client.post(
+            f"/applications/{application['id']}/delete", follow_redirects=False
+        )
+        self.assertEqual(missing_csrf.status_code, 403)
+        self.assertEqual(len(self.workspace.list_applications()), 1)
+
+        deleted = self.client.post(
+            f"/applications/{application['id']}/delete",
+            data={"csrf_token": token},
+            follow_redirects=False,
+        )
+        self.assertEqual(deleted.status_code, 303)
+        self.assertEqual(deleted.headers["location"], "/applications")
+        self.assertEqual(self.workspace.list_applications(), [])
+        self.assertEqual(self.workspace.show_job(job_id)["status"], "saved")
+
+        recreated = self.client.post(
+            f"/jobs/{job_id}/application",
+            data={"csrf_token": token},
+            follow_redirects=False,
+        )
+        self.assertEqual(recreated.status_code, 303)
+
+    def test_application_delete_route_rejects_immutable_draft_history(self) -> None:
+        job_id = self.workspace.list_jobs()[0]["id"]
+        application = self.workspace.create_application_from_job(job_id)
+        saved = self.workspace.save_draft(
+            application["id"],
+            documents=self.valid_documents(),
+            status="working",
+            actor="web",
+        )
+        self.workspace.discard_draft(
+            application["id"], expected_revision=saved["revision"], actor="web"
+        )
+
+        response = self.client.post(
+            f"/applications/{application['id']}/delete",
+            data={"csrf_token": self.csrf_token()},
+            follow_redirects=False,
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertRegex(response.json()["detail"], r"draft (history|material files)")
+        self.assertEqual(len(self.workspace.list_applications()), 1)
+
     def test_ai_handoff_and_material_packaging(self) -> None:
         job_id = self.workspace.list_jobs()[0]["id"]
         application = self.workspace.create_application_from_job(job_id)

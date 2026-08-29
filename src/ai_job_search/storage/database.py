@@ -206,6 +206,13 @@ class StorageDatabase(StorageDomainPort):
               created_at TEXT NOT NULL,
               updated_at TEXT NOT NULL
             );
+            -- A short-lived, transaction-local authorization marker used by
+            -- the application deletion operation. It intentionally has no
+            -- foreign key so it remains visible while child cascades run.
+            CREATE TABLE IF NOT EXISTS application_delete_intents (
+              application_id TEXT PRIMARY KEY,
+              created_at TEXT NOT NULL
+            );
             CREATE TABLE IF NOT EXISTS draft_revisions (
               id INTEGER PRIMARY KEY AUTOINCREMENT,
               application_id TEXT NOT NULL REFERENCES drafts(application_id) ON DELETE CASCADE,
@@ -307,8 +314,27 @@ class StorageDatabase(StorageDomainPort):
               BEFORE DELETE ON job_evaluations BEGIN SELECT RAISE(ABORT,'job evaluation is append-only'); END;
             CREATE TRIGGER IF NOT EXISTS immutable_draft_revisions_update
               BEFORE UPDATE ON draft_revisions BEGIN SELECT RAISE(ABORT,'draft revision is immutable'); END;
-            CREATE TRIGGER IF NOT EXISTS immutable_draft_revisions_delete
-              BEFORE DELETE ON draft_revisions BEGIN SELECT RAISE(ABORT,'draft revision is immutable'); END;
+            -- The legacy system-owned revision 0 is an empty technical
+            -- placeholder, not a material revision. Allow its cascade when
+            -- an otherwise empty application shell is physically removed;
+            -- every revision containing material or any later revision stays
+            -- append-only.
+            DROP TRIGGER IF EXISTS immutable_draft_revisions_delete;
+            CREATE TRIGGER immutable_draft_revisions_delete
+              BEFORE DELETE ON draft_revisions
+              WHEN NOT (
+                OLD.revision = 0
+                AND OLD.actor = 'system'
+                AND NOT EXISTS (
+                  SELECT 1 FROM draft_revision_files f
+                  WHERE f.draft_revision_id = OLD.id
+                )
+                AND EXISTS (
+                  SELECT 1 FROM application_delete_intents i
+                  WHERE i.application_id = OLD.application_id
+                )
+              )
+              BEGIN SELECT RAISE(ABORT,'draft revision is immutable'); END;
             CREATE TRIGGER IF NOT EXISTS immutable_draft_files_update
               BEFORE UPDATE ON draft_revision_files BEGIN SELECT RAISE(ABORT,'draft revision files are immutable'); END;
             CREATE TRIGGER IF NOT EXISTS immutable_draft_files_delete

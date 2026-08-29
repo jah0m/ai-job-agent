@@ -249,6 +249,34 @@ svg { flex: none; }
 /* Applications board */
 .applications-page { margin: 0; max-width: none; width: 100%; }
 .applications-page > .page-intro { max-width: none; }
+.applications-layout { align-items: start; display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr) 270px; }
+.applications-board-column { min-width: 0; }
+.applications-layout .kanban-board { grid-template-columns: repeat(6, minmax(124px, 1fr)); }
+.application-inspector { background: #fff; border: 1px solid var(--line); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); min-width: 0; padding: 17px; position: sticky; top: 79px; }
+.inspector-heading { align-items: flex-start; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; padding-bottom: 14px; }
+.inspector-heading h2 { font-size: 15px; letter-spacing: -.02em; margin: 3px 0 0; }
+.inspector-identity { border-bottom: 1px solid #edf0f5; display: grid; gap: 3px; padding: 15px 0; }
+.inspector-identity strong { font-size: 14px; line-height: 1.35; }
+.inspector-identity span { color: var(--muted); font-size: 11px; }
+.inspector-meta { border-bottom: 1px solid #edf0f5; display: grid; gap: 12px; padding: 14px 0; }
+.inspector-meta > div { align-items: center; display: flex; justify-content: space-between; gap: 10px; }
+.inspector-meta > div > span { color: var(--muted-light); font-size: 10px; }
+.inspector-meta time { color: var(--muted); font-size: 10px; }
+.inspector-meta .status-badge { font-size: 10px; padding: 5px 7px; }
+.inspector-progress { border-bottom: 1px solid #edf0f5; padding: 15px 0 14px; }
+.inspector-progress-heading { align-items: center; color: var(--muted); display: flex; font-size: 11px; justify-content: space-between; }
+.inspector-progress-heading strong { color: var(--text); font-size: 11px; }
+.inspector-progress-track { background: #e9edf3; border-radius: 99px; height: 5px; margin-top: 9px; overflow: hidden; }
+.inspector-progress-track span { background: var(--green); border-radius: inherit; display: block; height: 100%; transition: width .2s ease; }
+.inspector-completion-list { display: grid; gap: 7px; list-style: none; margin: 0; padding: 15px 0 3px; }
+.inspector-completion-item { align-items: center; color: var(--muted); display: grid; font-size: 11px; gap: 7px; grid-template-columns: 17px minmax(0, 1fr) auto; }
+.inspector-completion-item strong { color: var(--muted-light); font-size: 10px; font-weight: 600; }
+.inspector-completion-item.is-complete { color: #43566c; }
+.inspector-completion-item.is-complete strong { color: var(--green); }
+.inspector-completion-icon { align-items: center; border: 1px solid #cad3e0; border-radius: 50%; color: #fff; display: inline-flex; height: 17px; justify-content: center; width: 17px; }
+.inspector-completion-item.is-complete .inspector-completion-icon { background: var(--green); border-color: var(--green); }
+.inspector-detail-link { justify-content: space-between; margin-top: 15px; width: 100%; }
+.inspector-note { color: var(--muted-light); font-size: 10px; line-height: 1.45; margin: 10px 0 0; }
 .packages-page, .profile-page, .preferences-page, .editor-page, .document-page, .document-edit-page, .application-detail-page { margin: 0; max-width: 1460px; }
 .profile-page { max-width: none; width: 100%; }
 .profile-page > .page-intro { max-width: none; }
@@ -273,13 +301,19 @@ svg { flex: none; }
 .kanban-column.column-interviewing .kanban-card { background: #f4f0ff; border-color: #ded5f8; }
 .kanban-column.column-offer .kanban-card { background: #fff2e8; border-color: #f0d6bf; }
 .kanban-card:hover { border-color: #b8c9e8; transform: translateY(-1px); }
+.kanban-card:focus-visible { border-color: var(--blue); box-shadow: 0 0 0 3px rgb(40 104 232 / 13%); outline: 0; }
+.kanban-card.is-selected { border-color: var(--blue); box-shadow: 0 0 0 2px rgb(40 104 232 / 16%), var(--shadow-sm); }
 .kanban-card.is-moving { opacity: .5; }
+.kanban-card-select { background: transparent; border: 0; color: inherit; display: block; padding: 0; text-align: left; width: 100%; }
+.kanban-card-select:focus-visible { border-radius: 5px; box-shadow: 0 0 0 3px rgb(40 104 232 / 13%); outline: 0; }
 .kanban-card-top { align-items: center; display: flex; justify-content: space-between; }
 .drag-handle { color: #c0c8d5; }
 .kanban-card-link { display: block; padding: 9px 0 8px; }
 .kanban-card-link h3 { font-size: 13px; line-height: 1.35; margin: 0 0 3px; }
 .kanban-card-link p { color: var(--muted); font-size: 11px; margin: 0; }
 .kanban-card-footer { align-items: center; border-top: 1px solid #f0f2f5; color: var(--muted-light); display: flex; font-size: 10px; justify-content: space-between; padding-top: 8px; }
+.kanban-card-detail-link { align-items: center; color: var(--blue); display: inline-flex; font-size: 10px; font-weight: 650; gap: 3px; }
+.kanban-card-detail-link:hover { color: var(--blue-dark); }
 .kanban-empty { border: 1px dashed #d6dce6; border-radius: 8px; color: var(--muted-light); font-size: 11px; padding: 28px 8px; text-align: center; }
 .archived-panel { margin-top: 24px; padding: 20px; }
 .section-heading { align-items: flex-start; display: flex; justify-content: space-between; }
@@ -298,6 +332,42 @@ svg { flex: none; }
 .detail-main { display: grid; gap: 17px; min-width: 0; }
 .workflow-card { padding: 21px; }
 .compact-workflow { padding-bottom: 19px; }
+.preparation-card { padding-bottom: 17px; }
+.preparation-heading { gap: 16px; }
+.preparation-heading > strong { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.preparation-progress { background: #e9edf3; border-radius: 99px; height: 6px; margin: 18px 0 21px; overflow: hidden; }
+.preparation-progress span { background: var(--green); border-radius: inherit; display: block; height: 100%; transition: width .2s ease; }
+.preparation-steps { display: grid; gap: 16px; list-style: none; margin: 0; padding: 0; }
+.preparation-step { display: grid; gap: 12px; grid-template-columns: 29px minmax(0, 1fr); min-width: 0; position: relative; }
+.preparation-step:not(:last-child)::after { background: #dce4ef; content: ""; left: 14px; position: absolute; top: 31px; bottom: -17px; width: 1px; }
+.step-marker { align-items: center; background: #fff; border: 1px solid #cbd4e2; border-radius: 50%; color: var(--muted); display: inline-flex; font-size: 11px; font-weight: 750; height: 29px; justify-content: center; position: relative; width: 29px; z-index: 1; }
+.preparation-step.is-current .step-marker { background: var(--blue); border-color: var(--blue); color: #fff; }
+.preparation-step.is-complete .step-marker { background: var(--green); border-color: var(--green); color: #fff; }
+.step-content { min-width: 0; }
+.step-heading { align-items: flex-start; display: flex; gap: 14px; justify-content: space-between; }
+.step-heading h3 { font-size: 14px; line-height: 1.35; margin: 0 0 3px; }
+.step-heading p { color: var(--muted); font-size: 11px; margin: 0; }
+.step-state { color: var(--muted-light); font-size: 10px; font-weight: 650; padding-top: 2px; white-space: nowrap; }
+.preparation-step.is-complete .step-state { color: var(--green); }
+.preparation-step.is-current .step-state { color: var(--blue); }
+.step-surface { background: #fbfcff; border: 1px solid var(--line); border-radius: 10px; margin-top: 11px; padding: 14px; }
+.preparation-step.is-current .step-surface { border-color: #cbdaf5; }
+.step-surface .validation-banner { margin-bottom: 13px; }
+.step-footer-actions { align-items: center; border-top: 1px solid #e9edf3; color: var(--muted-light); display: flex; font-size: 10px; justify-content: space-between; margin-top: 13px; padding-top: 11px; }
+.step-footer-actions .button { font-size: 11px; min-height: 29px; padding: 0 8px; }
+.package-save-controls { align-items: flex-end; display: flex; gap: 11px; justify-content: space-between; }
+.package-save-controls .package-label-input { flex: 1 1 220px; max-width: none; }
+.package-label-input { display: grid; gap: 6px; }
+.package-label-input > span { color: #556174; font-size: 11px; font-weight: 650; }
+.package-save-controls > .button { flex: none; }
+.submission-action-row { align-items: flex-start; display: flex; gap: 15px; justify-content: space-between; }
+.submission-action-row p { color: var(--muted); font-size: 11px; margin: 2px 0 0; max-width: 530px; }
+.application-danger-zone { border-color: #f0d6d6; padding: 17px 21px; }
+.danger-zone-heading { align-items: center; display: flex; gap: 18px; justify-content: space-between; }
+.danger-zone-heading h2 { color: #9d3a3a; font-size: 14px; margin: 0 0 3px; }
+.danger-zone-heading p { color: var(--muted); font-size: 11px; margin: 0; max-width: 620px; }
+.danger-zone-heading .button { flex: none; }
+.danger-zone-hint { border-top: 1px solid #f4e3e3; color: var(--muted-light); font-size: 10px; margin: 13px 0 0; padding-top: 10px; }
 .status-update-row { align-items: end; display: grid; gap: 10px; grid-template-columns: 175px 1fr auto; margin-top: 17px; }
 .status-update-row input { height: 38px; }
 .materials-card { padding-bottom: 19px; }
@@ -574,7 +644,7 @@ svg { flex: none; }
 @media (max-width: 1200px) {
   .page-content { padding-left: 27px; padding-right: 27px; }
   .sidebar { flex-basis: 210px; }
-  .detail-grid, .profile-layout { grid-template-columns: minmax(0, 1fr) 270px; }
+  .applications-layout, .detail-grid, .profile-layout { grid-template-columns: minmax(0, 1fr) 270px; }
 }
 @media (max-width: 900px) {
   .sidebar { display: none; }
@@ -582,7 +652,9 @@ svg { flex: none; }
   .global-header { padding: 0 18px 0 57px; }
   .page-content { padding: 29px 18px 55px; }
   .job-drawer { top: 0; width: min(100vw, 470px); }
-  .detail-grid, .profile-layout { grid-template-columns: 1fr; }
+  .applications-layout, .detail-grid, .profile-layout { grid-template-columns: 1fr; }
+  .applications-layout .kanban-board { grid-template-columns: repeat(6, minmax(145px, 1fr)); }
+  .application-inspector { order: -1; position: static; }
   .activity-panel, .profile-side { position: static; }
   .activity-panel { max-height: none; overflow: visible; }
   .profile-side { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -607,6 +679,13 @@ svg { flex: none; }
   .drawer-body { padding-bottom: 35px; }
   .material-grid, .form-grid, .field-grid, .field-grid.three-columns, .field-grid.four-columns, .toggle-grid, .preferences-layout, .profile-side { grid-template-columns: 1fr; }
   .workflow-card, .profile-section, .editor-section, .markdown-editor { padding: 15px; }
+  .application-danger-zone { padding: 15px; }
+  .danger-zone-heading { align-items: flex-start; flex-direction: column; }
+  .danger-zone-heading .button { width: 100%; }
+  .preparation-heading { align-items: flex-start; }
+  .step-heading { gap: 7px; }
+  .package-save-controls, .submission-action-row { align-items: stretch; flex-direction: column; }
+  .package-save-controls > .button { align-self: flex-start; }
   .status-update-row { grid-template-columns: 1fr; }
   .status-update-row .button { justify-self: start; }
   .submission-card > .section-heading { flex-direction: column; }

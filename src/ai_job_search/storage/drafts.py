@@ -45,7 +45,7 @@ class DraftStorageMixin(StorageDatabase):
 
     def _current_draft(
         self, connection: sqlite3.Connection, application_id: str
-    ) -> tuple[sqlite3.Row, sqlite3.Row]:
+    ) -> tuple[sqlite3.Row, sqlite3.Row | dict[str, Any]]:
         draft = connection.execute(
             "SELECT * FROM drafts WHERE application_id=?", (application_id,)
         ).fetchone()
@@ -56,6 +56,15 @@ class DraftStorageMixin(StorageDatabase):
             (application_id, draft["current_revision"]),
         ).fetchone()
         if revision is None:
+            if int(draft["current_revision"]) == 0:
+                # A newly-created draft is an empty shell, not an immutable
+                # revision. Keep the revision-0 shape for callers without
+                # persisting history until the first material save.
+                return draft, {
+                    "base_package_id": None,
+                    "label": None,
+                    "template_revision": TEMPLATE_REVISION,
+                }
             raise WorkspaceError(
                 f"Missing draft revision {draft['current_revision']} for {application_id}"
             )
@@ -238,6 +247,21 @@ class DraftStorageMixin(StorageDatabase):
             )
             if update_result.rowcount != 1:
                 raise WorkspaceError("Current materials changed while they were being saved")
+            if current_revision == 0 and connection.execute(
+                "SELECT 1 FROM draft_revisions WHERE application_id=? AND revision=0",
+                (application_id,),
+            ).fetchone() is None:
+                connection.execute(
+                    "INSERT INTO draft_revisions(application_id,revision,base_package_id,label,"
+                    "template_revision,validation_json,created_at,actor) VALUES(?,0,NULL,NULL,?,?,?,?)",
+                    (
+                        application_id,
+                        TEMPLATE_REVISION,
+                        canonical_json(self._validate_file_map({})),
+                        updated,
+                        "system",
+                    ),
+                )
             revision_id = connection.execute(
                 "INSERT INTO draft_revisions(application_id,revision,base_package_id,label,template_revision,"
                 "validation_json,created_at,actor) VALUES(?,?,?,?,?,?,?,?)",

@@ -539,6 +539,40 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
     );
 
   const draftPaths = new Set(draft.files.map((file) => file.path));
+  const hasSourceDocuments = documentNames.every(({ path }) =>
+    draftPaths.has(path),
+  );
+  const hasDeliverables = draft.deliverable_files.length > 0;
+  const hasMaterialPackage = application.packages.length > 0;
+  const hasSubmissionRecord = application.submissions.length > 0;
+  const canDeleteApplication =
+    draft.revision === 0 &&
+    draft.status === "empty" &&
+    draft.files.length === 0 &&
+    application.packages.length === 0 &&
+    application.submissions.length === 0;
+  const preparationSteps = [
+    hasSourceDocuments,
+    hasDeliverables,
+    hasMaterialPackage,
+    hasSubmissionRecord,
+  ];
+  const completedPreparationSteps = preparationSteps.filter(Boolean).length;
+  const currentPreparationStep = preparationSteps.findIndex(
+    (isComplete) => !isComplete,
+  );
+  const preparationStepClass = (index: number, isComplete: boolean) =>
+    isComplete
+      ? "is-complete"
+      : currentPreparationStep === index
+        ? "is-current"
+        : "is-pending";
+  const preparationStepState = (index: number, isComplete: boolean) =>
+    isComplete
+      ? "已完成"
+      : currentPreparationStep === index
+        ? "进行中"
+        : "待进行";
   const aiPrompt =
     application.ai_prompt ?? buildApplicationPromptFallback(application.id);
   const updateStatus = () =>
@@ -591,6 +625,30 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
         { expected_revision: draft.revision },
       ),
     );
+  };
+  const deleteApplication = async () => {
+    if (!canDeleteApplication || busy === "delete") return;
+    if (
+      !window.confirm(
+        "删除后申请记录和空白草稿将永久移除。之后可以从已保存岗位重新创建。确定删除？",
+      )
+    )
+      return;
+    setBusy("delete");
+    try {
+      await postUrlEncoded(
+        `/applications/${encodeURIComponent(application.id)}/delete`,
+        {},
+      );
+      navigate("/applications");
+    } catch (error) {
+      showToast({
+        title: "删除失败",
+        description: error instanceof Error ? error.message : "请稍后重试",
+      });
+    } finally {
+      setBusy(null);
+    }
   };
   const activityEvents = compactActivityEvents(application.events);
   const recentActivityEvents = activityEvents.slice(0, 6);
@@ -673,343 +731,463 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
               </Button>
             </div>
           </Panel>
-          <Panel className="workflow-card materials-card">
-            <div className="section-heading">
+          <Panel className="workflow-card preparation-card">
+            <div className="section-heading preparation-heading">
               <div>
-                <span className="page-eyebrow">可编辑工作区</span>
-                <h2>当前材料</h2>
-                <p>
-                  Markdown 维护内容，最终投递文件由你在外部工具中排版后上传。
-                </p>
+                <span className="page-eyebrow">申请准备清单</span>
+                <h2>申请准备清单</h2>
+                <p>按顺序完成四步，确保最终投递材料可追溯。</p>
               </div>
-              <span>Revision {draft.revision}</span>
+              <strong>{completedPreparationSteps} / 4 步骤</strong>
             </div>
-            <ValidationBanner draft={draft} />
-            <div className="material-grid">
-              <section className="material-column">
-                <div className="column-heading">
-                  <div>
-                    <h3>内容源</h3>
-                    <p>先创建内容，或让 AI 根据职位和履历起草。</p>
-                  </div>
-                  <FileText size={19} />
+            <div
+              aria-label={`申请准备进度：${completedPreparationSteps} / 4 步骤`}
+              aria-valuemax={4}
+              aria-valuemin={0}
+              aria-valuenow={completedPreparationSteps}
+              className="preparation-progress"
+              role="progressbar"
+            >
+              <span style={{ width: `${completedPreparationSteps * 25}%` }} />
+            </div>
+            <ol className="preparation-steps" aria-label="申请准备清单">
+              <li
+                className={`preparation-step ${preparationStepClass(0, hasSourceDocuments)}`}
+                id="preparation-documents"
+              >
+                <div className="step-marker" aria-hidden="true">
+                  {hasSourceDocuments ? <Check size={14} /> : "1"}
                 </div>
-                <div className="material-list">
-                  {documentNames.map(({ path, title }) =>
-                    draftPaths.has(path) ? (
-                      <div className="material-row" key={path}>
-                        <div className="file-icon">
-                          <FileText size={18} />
-                        </div>
-                        <div className="file-copy">
-                          <strong>{title}</strong>
-                          <span>{path}</span>
-                        </div>
-                        <div className="row-actions">
+                <div className="step-content">
+                  <div className="step-heading">
+                    <div>
+                      <h3>创建履歴書与職務経歴書</h3>
+                      <p>维护内容源，或让 AI 根据职位和履历起草。</p>
+                    </div>
+                    <span className="step-state">
+                      {preparationStepState(0, hasSourceDocuments)}
+                    </span>
+                  </div>
+                  <div className="step-surface">
+                    <ValidationBanner draft={draft} />
+                    <div className="material-list">
+                      {documentNames.map(({ path, title }) =>
+                        draftPaths.has(path) ? (
+                          <div className="material-row" key={path}>
+                            <div className="file-icon">
+                              <FileText size={18} />
+                            </div>
+                            <div className="file-copy">
+                              <strong>{title}</strong>
+                              <span>{path}</span>
+                            </div>
+                            <div className="row-actions">
+                              <Link
+                                aria-label={`预览 ${title}`}
+                                className="icon-action"
+                                to={previewUrl(application.id, path)}
+                              >
+                                <FileText size={15} />
+                              </Link>
+                              <Link
+                                aria-label={`编辑 ${title}`}
+                                className="icon-action"
+                                to={`/applications/${encodeURIComponent(application.id)}/draft/edit/${encodedPath(path)}`}
+                              >
+                                <Pencil size={15} />
+                              </Link>
+                              <a
+                                aria-label={`下载 ${title}`}
+                                className="icon-action"
+                                download
+                                href={downloadDraftUrl(application.id, path)}
+                              >
+                                <FileDown size={15} />
+                              </a>
+                            </div>
+                          </div>
+                        ) : (
                           <Link
-                            aria-label={`预览 ${title}`}
-                            className="icon-action"
-                            to={previewUrl(application.id, path)}
-                          >
-                            <FileText size={15} />
-                          </Link>
-                          <Link
-                            aria-label={`编辑 ${title}`}
-                            className="icon-action"
+                            className="material-row empty-material"
+                            key={path}
                             to={`/applications/${encodeURIComponent(application.id)}/draft/edit/${encodedPath(path)}`}
                           >
-                            <Pencil size={15} />
+                            <div className="file-icon muted">
+                              <Plus size={18} />
+                            </div>
+                            <div className="file-copy">
+                              <strong>{title}</strong>
+                              <span>尚未创建</span>
+                            </div>
+                            <Plus size={16} />
                           </Link>
-                          <a
-                            aria-label={`下载 ${title}`}
-                            className="icon-action"
-                            download
-                            href={downloadDraftUrl(application.id, path)}
-                          >
-                            <FileDown size={15} />
-                          </a>
-                        </div>
+                        ),
+                      )}
+                    </div>
+                    <div className="source-start">
+                      <div className="source-start-copy">
+                        <span>快捷方式</span>
+                        <strong>让 AI 起草</strong>
+                        <p>让 Codex 根据职位和履历生成初稿。</p>
                       </div>
-                    ) : (
-                      <Link
-                        className="material-row empty-material"
-                        key={path}
-                        to={`/applications/${encodeURIComponent(application.id)}/draft/edit/${encodedPath(path)}`}
-                      >
-                        <div className="file-icon muted">
-                          <Plus size={18} />
-                        </div>
-                        <div className="file-copy">
-                          <strong>{title}</strong>
-                          <span>尚未创建</span>
-                        </div>
-                        <Plus size={16} />
-                      </Link>
-                    ),
-                  )}
-                </div>
-                <div className="source-start">
-                  <div className="source-start-copy">
-                    <span>快捷方式</span>
-                    <strong>让 AI 起草</strong>
-                    <p>让 Codex 根据职位和履历生成初稿。</p>
-                  </div>
-                  <div className="source-start-actions">
-                    <AiPromptButton
-                      label="让 AI 起草"
-                      prompt={aiPrompt}
-                      successDescription="请粘贴到 Codex 中开始起草。"
-                    />
-                  </div>
-                </div>
-              </section>
-              <section className="material-column final-column">
-                <div className="column-heading">
-                  <div>
-                    <h3>实际投递文件</h3>
-                    <p>通常是 PDF；公司要求时可使用 DOCX。系统不生成 PDF。</p>
-                  </div>
-                  <Upload size={19} />
-                </div>
-                <div className="material-list">
-                  {draft.deliverable_files.length ? (
-                    draft.deliverable_files.map((file) => (
-                      <MaterialRow
-                        file={file}
-                        key={file.path}
-                        applicationId={application.id}
-                        onRemove={() => removeFile(file.path)}
-                      />
-                    ))
-                  ) : (
-                    <div className="section-empty">尚未上传最终文件。</div>
-                  )}
-                </div>
-                <form className="upload-form" onSubmit={uploadDeliverable}>
-                  <div className="form-grid">
-                    <label className="field-label">
-                      <span>材料用途</span>
-                      <select
-                        onChange={(event) =>
-                          setDeliverablePurpose(event.target.value)
-                        }
-                        value={deliverablePurpose}
-                      >
-                        <option value="rirekisho">履歴書</option>
-                        <option value="shokumu_keirekisho">职务经历书</option>
-                        <option value="employer_form">公司指定表格</option>
-                        <option value="portfolio">作品集</option>
-                        <option value="other">其他</option>
-                      </select>
-                    </label>
-                    <div className="field-label">
-                      <span>文件</span>
-                      <label className="file-picker">
-                        <Upload size={16} />
-                        <span>
-                          {deliverableFile?.name ?? "选择 PDF / DOCX"}
-                        </span>
-                        <input
-                          accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                          onChange={(event) =>
-                            setDeliverableFile(event.target.files?.[0] ?? null)
-                          }
-                          type="file"
+                      <div className="source-start-actions">
+                        <AiPromptButton
+                          label="让 AI 起草"
+                          prompt={aiPrompt}
+                          successDescription="请粘贴到 Codex 中开始起草。"
                         />
-                      </label>
+                      </div>
+                    </div>
+                    <div className="step-footer-actions">
+                      <span>当前 Revision {draft.revision}</span>
+                      <Button
+                        disabled={busy === "discard"}
+                        onClick={discardDraft}
+                        variant="ghost"
+                      >
+                        清空当前材料
+                      </Button>
                     </div>
                   </div>
-                  <Button disabled={busy === "deliverable"} type="submit">
-                    {busy === "deliverable" ? (
-                      <LoaderCircle className="spin" size={15} />
-                    ) : null}
-                    上传到当前材料
-                  </Button>
-                </form>
-              </section>
-            </div>
-            <div className="external-format-note">
-              <div className="note-icon">
-                <ExternalLink size={16} />
-              </div>
-              <div>
-                <strong>在外部调整格式</strong>
-                <p>
-                  下载 Markdown 后，可在 Google Docs、Word
-                  或公司指定模板中调整内容与版式。完成后，将实际投递的 PDF 或
-                  DOCX 上传到当前材料。
-                </p>
-                <p>
-                  制作职务经历书时，也可以使用{" "}
-                  <a
-                    href="https://md-resume.jahom.dev/"
-                    rel="noreferrer"
-                    target="_blank"
-                  >
-                    Markdown Resume Studio
-                  </a>{" "}
-                  预览版式。
-                </p>
-              </div>
-            </div>
-            <div className="material-footer-actions">
-              <Button
-                disabled={busy === "package"}
-                onClick={lockPackage}
-                variant="secondary"
-              >
-                <LockKeyhole size={15} />
-                现在保存材料包
-              </Button>
-              <Button
-                disabled={busy === "discard"}
-                onClick={discardDraft}
-                variant="ghost"
-              >
-                清空当前材料
-              </Button>
-              <label className="package-label-input">
-                <span className="sr-only">材料包标签</span>
-                <input
-                  maxLength={120}
-                  onChange={(event) => setPackageLabel(event.target.value)}
-                  placeholder="材料包标签（可选）"
-                  value={packageLabel}
-                />
-              </label>
-            </div>
-          </Panel>
-          <Panel className="workflow-card submission-card">
-            <div className="section-heading">
-              <div>
-                <span className="page-eyebrow">外部动作完成后</span>
-                <h2>记录已完成的投递</h2>
-                <p>
-                  系统不会发送文件。记录时会把当前材料自动保存为不可变材料包，并绑定本次事实。
-                </p>
-              </div>
-              <SubmissionDialog
-                application={application}
-                draft={draft}
-                onDone={load}
-              />
-            </div>
-            {application.submissions.length ? (
-              <div className="submission-history">
-                {application.submissions
-                  .slice()
-                  .reverse()
-                  .map((submission) => (
-                    <article className="submission-row" key={submission.id}>
-                      <div className="timeline-dot" />
-                      <div>
-                        <strong>
-                          {formatDate(
-                            submission.submitted_at || submission.recorded_at,
-                            true,
-                          )}
-                        </strong>
-                        <span>
-                          {(
-                            {
-                              exact_files: "精确文件",
-                              source_only: "仅材料来源",
-                              status_only: "仅状态",
-                            } as Record<string, string>
-                          )[submission.evidence_level] ??
-                            submission.evidence_level}{" "}
-                          ·{" "}
-                          {(
-                            {
-                              company_portal: "公司招聘页",
-                              email: "邮件",
-                              recruiting_agent: "猎头 / 中介",
-                              linkedin: "LinkedIn",
-                              other: "其他",
-                            } as Record<string, string>
-                          )[submission.channel] ?? submission.channel}
-                        </span>
-                        <p>
-                          {submission.package_id ? (
-                            <>
-                              材料包 <code>{submission.package_id}</code>
-                            </>
-                          ) : (
-                            "未绑定材料包"
-                          )}
-                          {submission.files.length
-                            ? ` · ${submission.files.length} 个已保存文件`
-                            : ""}
-                        </p>
-                        {submission.note ? (
-                          <small>{submission.note}</small>
-                        ) : null}
-                      </div>
-                    </article>
-                  ))}
-              </div>
-            ) : (
-              <div className="section-empty large-empty">
-                还没有投递记录。完成外部投递后，在这里留下可追溯记录。
-              </div>
-            )}
-          </Panel>
-          <details
-            className="workflow-card accordion package-history"
-            open={openSection === "packages"}
-            onToggle={(event) =>
-              setOpenSection(event.currentTarget.open ? "packages" : null)
-            }
-          >
-            <summary>
-              <span>材料包历史</span>
-              <span className="summary-count">
-                {application.packages.length}
-              </span>
-            </summary>
-            <div className="accordion-body">
-              <p className="field-hint">
-                材料包是某个时刻的不可变快照。通常无需手动创建；记录投递时会自动保存。被投递记录引用后不可删除。
-              </p>
-              {application.packages.length ? (
-                <div className="package-list">
-                  {application.packages
-                    .slice()
-                    .reverse()
-                    .map((item) => (
-                      <PackageRow
-                        applicationId={application.id}
-                        item={item}
-                        key={item.id}
-                        onRestore={() =>
-                          void mutate("restore", () =>
-                            postUrlEncoded(
-                              `/applications/${encodeURIComponent(application.id)}/packages/${encodeURIComponent(item.id)}/restore`,
-                              { expected_revision: draft.revision },
-                            ),
-                          )
-                        }
-                        onDelete={() => {
-                          if (
-                            window.confirm(
-                              "删除后材料包会移入本地回收目录。确认删除？",
-                            )
-                          )
-                            void mutate("delete-package", () =>
-                              postUrlEncoded(
-                                `/applications/${encodeURIComponent(application.id)}/packages/${encodeURIComponent(item.id)}/delete`,
-                                {},
-                              ),
-                            );
-                        }}
-                      />
-                    ))}
                 </div>
-              ) : (
-                <div className="section-empty">还没有材料包。</div>
-              )}
+              </li>
+              <li
+                className={`preparation-step ${preparationStepClass(1, hasDeliverables)}`}
+                id="preparation-files"
+              >
+                <div className="step-marker" aria-hidden="true">
+                  {hasDeliverables ? <Check size={14} /> : "2"}
+                </div>
+                <div className="step-content">
+                  <div className="step-heading">
+                    <div>
+                      <h3>上传实际投递文件</h3>
+                      <p>上传你在外部排版后实际发送的 PDF 或 DOCX。</p>
+                    </div>
+                    <span className="step-state">
+                      {preparationStepState(1, hasDeliverables)}
+                    </span>
+                  </div>
+                  <div className="step-surface">
+                    <div className="material-list">
+                      {draft.deliverable_files.length ? (
+                        draft.deliverable_files.map((file) => (
+                          <MaterialRow
+                            file={file}
+                            key={file.path}
+                            applicationId={application.id}
+                            onRemove={() => removeFile(file.path)}
+                          />
+                        ))
+                      ) : (
+                        <div className="section-empty">尚未上传最终文件。</div>
+                      )}
+                    </div>
+                    <form className="upload-form" onSubmit={uploadDeliverable}>
+                      <div className="form-grid">
+                        <label className="field-label">
+                          <span>材料用途</span>
+                          <select
+                            onChange={(event) =>
+                              setDeliverablePurpose(event.target.value)
+                            }
+                            value={deliverablePurpose}
+                          >
+                            <option value="rirekisho">履歴書</option>
+                            <option value="shokumu_keirekisho">
+                              职务经历书
+                            </option>
+                            <option value="employer_form">公司指定表格</option>
+                            <option value="portfolio">作品集</option>
+                            <option value="other">其他</option>
+                          </select>
+                        </label>
+                        <div className="field-label">
+                          <span>文件</span>
+                          <label className="file-picker">
+                            <Upload size={16} />
+                            <span>
+                              {deliverableFile?.name ?? "选择 PDF / DOCX"}
+                            </span>
+                            <input
+                              accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                              onChange={(event) =>
+                                setDeliverableFile(
+                                  event.target.files?.[0] ?? null,
+                                )
+                              }
+                              type="file"
+                            />
+                          </label>
+                        </div>
+                      </div>
+                      <Button disabled={busy === "deliverable"} type="submit">
+                        {busy === "deliverable" ? (
+                          <LoaderCircle className="spin" size={15} />
+                        ) : null}
+                        上传到当前材料
+                      </Button>
+                    </form>
+                    <div className="external-format-note">
+                      <div className="note-icon">
+                        <ExternalLink size={16} />
+                      </div>
+                      <div>
+                        <strong>在外部调整格式</strong>
+                        <p>
+                          下载 Markdown 后，可在 Google Docs、Word
+                          或公司指定模板中调整内容与版式。完成后，将实际投递的
+                          PDF 或 DOCX 上传到当前材料。
+                        </p>
+                        <p>
+                          制作职务经历书时，也可以使用{" "}
+                          <a
+                            href="https://md-resume.jahom.dev/"
+                            rel="noreferrer"
+                            target="_blank"
+                          >
+                            Markdown Resume Studio
+                          </a>{" "}
+                          预览版式。
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </li>
+              <li
+                className={`preparation-step ${preparationStepClass(2, hasMaterialPackage)}`}
+                id="preparation-package"
+              >
+                <div className="step-marker" aria-hidden="true">
+                  {hasMaterialPackage ? <Check size={14} /> : "3"}
+                </div>
+                <div className="step-content">
+                  <div className="step-heading">
+                    <div>
+                      <h3>保存不可变材料包</h3>
+                      <p>保存当前材料快照，之后可用于精确投递记录。</p>
+                    </div>
+                    <span className="step-state">
+                      {preparationStepState(2, hasMaterialPackage)}
+                    </span>
+                  </div>
+                  <div className="step-surface">
+                    <div className="package-save-controls">
+                      <label className="package-label-input">
+                        <span>材料包标签（可选）</span>
+                        <input
+                          maxLength={120}
+                          onChange={(event) =>
+                            setPackageLabel(event.target.value)
+                          }
+                          placeholder="例如：SWE · 2026 春季版"
+                          value={packageLabel}
+                        />
+                      </label>
+                      <Button
+                        disabled={busy === "package"}
+                        onClick={lockPackage}
+                        variant="secondary"
+                      >
+                        {busy === "package" ? (
+                          <LoaderCircle className="spin" size={15} />
+                        ) : (
+                          <LockKeyhole size={15} />
+                        )}
+                        保存材料包
+                      </Button>
+                    </div>
+                    <details
+                      className="accordion package-history"
+                      open={openSection === "packages"}
+                      onToggle={(event) =>
+                        setOpenSection(
+                          event.currentTarget.open ? "packages" : null,
+                        )
+                      }
+                    >
+                      <summary>
+                        <span>材料包历史</span>
+                        <span className="summary-count">
+                          {application.packages.length}
+                        </span>
+                      </summary>
+                      <div className="accordion-body">
+                        <p className="field-hint">
+                          材料包是某个时刻的不可变快照。通常无需手动创建；记录投递时会自动保存。被投递记录引用后不可删除。
+                        </p>
+                        {application.packages.length ? (
+                          <div className="package-list">
+                            {application.packages
+                              .slice()
+                              .reverse()
+                              .map((item) => (
+                                <PackageRow
+                                  applicationId={application.id}
+                                  item={item}
+                                  key={item.id}
+                                  onRestore={() =>
+                                    void mutate("restore", () =>
+                                      postUrlEncoded(
+                                        `/applications/${encodeURIComponent(application.id)}/packages/${encodeURIComponent(item.id)}/restore`,
+                                        { expected_revision: draft.revision },
+                                      ),
+                                    )
+                                  }
+                                  onDelete={() => {
+                                    if (
+                                      window.confirm(
+                                        "删除后材料包会移入本地回收目录。确认删除？",
+                                      )
+                                    )
+                                      void mutate("delete-package", () =>
+                                        postUrlEncoded(
+                                          `/applications/${encodeURIComponent(application.id)}/packages/${encodeURIComponent(item.id)}/delete`,
+                                          {},
+                                        ),
+                                      );
+                                  }}
+                                />
+                              ))}
+                          </div>
+                        ) : (
+                          <div className="section-empty">还没有材料包。</div>
+                        )}
+                      </div>
+                    </details>
+                  </div>
+                </div>
+              </li>
+              <li
+                className={`preparation-step ${preparationStepClass(3, hasSubmissionRecord)}`}
+                id="preparation-submission"
+              >
+                <div className="step-marker" aria-hidden="true">
+                  {hasSubmissionRecord ? <Check size={14} /> : "4"}
+                </div>
+                <div className="step-content">
+                  <div className="step-heading">
+                    <div>
+                      <h3>记录已完成的外部投递</h3>
+                      <p>外部投递完成后，在这里留下可追溯记录。</p>
+                    </div>
+                    <span className="step-state">
+                      {preparationStepState(3, hasSubmissionRecord)}
+                    </span>
+                  </div>
+                  <div className="step-surface">
+                    <div className="submission-action-row">
+                      <p>
+                        系统不会发送文件。记录时会把当前材料自动保存为不可变材料包，并绑定本次事实。
+                      </p>
+                      <SubmissionDialog
+                        application={application}
+                        draft={draft}
+                        onDone={load}
+                      />
+                    </div>
+                    {application.submissions.length ? (
+                      <div className="submission-history">
+                        {application.submissions
+                          .slice()
+                          .reverse()
+                          .map((submission) => (
+                            <article
+                              className="submission-row"
+                              key={submission.id}
+                            >
+                              <div className="timeline-dot" />
+                              <div>
+                                <strong>
+                                  {formatDate(
+                                    submission.submitted_at ||
+                                      submission.recorded_at,
+                                    true,
+                                  )}
+                                </strong>
+                                <span>
+                                  {(
+                                    {
+                                      exact_files: "精确文件",
+                                      source_only: "仅材料来源",
+                                      status_only: "仅状态",
+                                    } as Record<string, string>
+                                  )[submission.evidence_level] ??
+                                    submission.evidence_level}{" "}
+                                  ·{" "}
+                                  {(
+                                    {
+                                      company_portal: "公司招聘页",
+                                      email: "邮件",
+                                      recruiting_agent: "猎头 / 中介",
+                                      linkedin: "LinkedIn",
+                                      other: "其他",
+                                    } as Record<string, string>
+                                  )[submission.channel] ?? submission.channel}
+                                </span>
+                                <p>
+                                  {submission.package_id ? (
+                                    <>
+                                      材料包{" "}
+                                      <code>{submission.package_id}</code>
+                                    </>
+                                  ) : (
+                                    "未绑定材料包"
+                                  )}
+                                  {submission.files.length
+                                    ? ` · ${submission.files.length} 个已保存文件`
+                                    : ""}
+                                </p>
+                                {submission.note ? (
+                                  <small>{submission.note}</small>
+                                ) : null}
+                              </div>
+                            </article>
+                          ))}
+                      </div>
+                    ) : (
+                      <div className="section-empty large-empty">
+                        还没有投递记录。完成外部投递后，在这里留下可追溯记录。
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </li>
+            </ol>
+          </Panel>
+          <section
+            aria-labelledby="application-delete-heading"
+            className="panel application-danger-zone"
+          >
+            <div className="danger-zone-heading">
+              <div>
+                <span className="page-eyebrow">危险操作</span>
+                <h2 id="application-delete-heading">删除申请</h2>
+                <p>
+                  只允许删除尚未创建材料、材料包或投递记录的空申请。删除后可从已保存岗位重新开始。
+                </p>
+              </div>
+              <Button
+                className="danger-button"
+                disabled={!canDeleteApplication || busy === "delete"}
+                onClick={() => void deleteApplication()}
+                variant="danger"
+              >
+                {busy === "delete" ? (
+                  <LoaderCircle className="spin" size={15} />
+                ) : (
+                  <Trash2 size={15} />
+                )}
+                删除申请
+              </Button>
             </div>
-          </details>
+            <p className="danger-zone-hint">
+              {canDeleteApplication
+                ? "当前申请是空壳，可以安全删除。"
+                : "已有材料内容、材料包、投递记录或不可变修订历史，无法删除。"}
+            </p>
+          </section>
         </div>
         <aside className="activity-panel">
           <div className="activity-heading">
