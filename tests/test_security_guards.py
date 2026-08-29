@@ -6,10 +6,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from tools.security_guards import run_checks
+from tools.security_guards import run_checks  # noqa: E402
 
 
 class SecurityGuardTests(unittest.TestCase):

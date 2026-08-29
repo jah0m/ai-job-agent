@@ -107,13 +107,17 @@ AI Job Agent never submits an application on the user's behalf and never treats 
 
 ## Local data and privacy
 
-Candidate data, job postings, evaluations, application history, generated materials, uploaded files, and the SQLite index remain on the local machine under `.job-search/`. The directory is ignored by Git so private job-search data does not enter the repository.
+Candidate data, job postings, evaluations, application history, generated materials, uploaded files, the SQLite database, and content-addressed objects remain on the local machine under `.job-search/`. The directory is ignored by Git so private job-search data does not enter the repository.
 
 Application materials have explicit lifecycle boundaries:
 
-- `draft/` is the only mutable current-materials area;
-- `packages/` contains immutable material packages;
-- `submitted/` contains submission records and file hashes.
+- SQLite is the sole metadata authority for profiles, jobs, evaluations,
+  applications, state, and version relationships;
+- `objects/sha256/` stores one immutable copy of posting evidence and materials;
+- draft edits create immutable revisions, while packages and submissions refer
+  to exact artifact hashes;
+- Codex staging JSON lives under `operations/`, is consumed after successful
+  persistence, and remains after failure for diagnosis.
 
 ## Documentation
 

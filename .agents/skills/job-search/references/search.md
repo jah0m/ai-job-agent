@@ -13,7 +13,7 @@ bun run .agents/skills/ats-search/cli/src/cli.ts search --provider herp --compan
 bun run .agents/skills/ats-search/cli/src/cli.ts search --provider hrmos --company <slug> --query "エンジニア" --limit 20 --format json
 ```
 
-Save JSON output under `.job-search/cache/` as a discovery candidate. Before
+Save JSON output under `.job-search/operations/<operation-id>/` as a discovery candidate. Before
 importing a selected result, read [references/ingest.md](ingest.md), fetch the
 full detail page, and let AI produce the normalized source record. Portal
 search output is not a complete posting and must not be treated as the final
@@ -68,7 +68,7 @@ Before creating an application, inspect the full posting and run the evaluation
 workflow. Persist the AI-authored analysis so the Web dashboard can display it:
 
 ```powershell
-python scripts/job_search.py job evaluate <job-id> --file .job-search/cache/evaluation.json
+python scripts/job_search.py job evaluate <job-id> --file .job-search/operations/<operation-id>/evaluation.json
 ```
 
 A chat summary or Markdown export alone is not a saved evaluation. Only after

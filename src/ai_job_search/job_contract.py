@@ -5,7 +5,7 @@ import json
 from datetime import datetime
 from importlib.resources import files
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from jsonschema import Draft202012Validator, FormatChecker
 
@@ -16,7 +16,7 @@ class JobContractError(ValueError):
 
 def _load_schema() -> dict[str, Any]:
     resource = files("ai_job_search.schemas").joinpath("job-result.schema.json")
-    return json.loads(resource.read_text(encoding="utf-8"))
+    return cast(dict[str, Any], json.loads(resource.read_text(encoding="utf-8")))
 
 
 JOB_RESULT_SCHEMA = _load_schema()
@@ -45,13 +45,15 @@ def validate_job_shape(job: Any) -> dict[str, Any]:
     )
     if errors:
         details = "; ".join(
-            f"{_json_path(error.absolute_path)}: {error.message}"
-            for error in errors
+            f"{_json_path(error.absolute_path)}: {error.message}" for error in errors
         )
         raise JobContractError(f"Invalid normalized job: {details}")
+
     def reject_blank_strings(value: Any, path: str) -> None:
         if isinstance(value, str) and not value.strip():
-            raise JobContractError(f"Invalid normalized job at {path}: blank strings are not allowed")
+            raise JobContractError(
+                f"Invalid normalized job at {path}: blank strings are not allowed"
+            )
         if isinstance(value, dict):
             for key, child in value.items():
                 reject_blank_strings(child, f"{path}.{key}")
@@ -60,7 +62,7 @@ def validate_job_shape(job: Any) -> dict[str, Any]:
                 reject_blank_strings(child, f"{path}[{index}]")
 
     reject_blank_strings(job, "$")
-    return job
+    return cast(dict[str, Any], job)
 
 
 def validate_job_semantics(
@@ -85,9 +87,7 @@ def validate_job_semantics(
         )
 
     try:
-        retrieved_at = datetime.fromisoformat(
-            source["retrieved_at"].replace("Z", "+00:00")
-        )
+        retrieved_at = datetime.fromisoformat(source["retrieved_at"].replace("Z", "+00:00"))
     except ValueError as exc:
         raise JobContractError(
             "Invalid normalized job at $.source.retrieved_at: invalid ISO 8601 timestamp"
@@ -106,14 +106,15 @@ def validate_job_semantics(
         snapshot_path = (workspace_root.parent / raw_path).resolve()
     else:
         snapshot_path = (workspace_root / raw_path).resolve()
-    cache_root = (workspace_root / "cache").resolve()
-    try:
-        snapshot_path.relative_to(cache_root)
-    except ValueError as exc:
+    staging_roots = [
+        (workspace_root / "cache").resolve(),
+        (workspace_root / "operations").resolve(),
+    ]
+    if not any(_is_relative_to(snapshot_path, staging_root) for staging_root in staging_roots):
         raise JobContractError(
             "Invalid normalized job at $.source.snapshot_path: snapshot must be under "
-            f"{cache_root}"
-        ) from exc
+            f"{staging_roots[0]} or {staging_roots[1]}"
+        )
     if not snapshot_path.is_file():
         raise JobContractError(
             "Invalid normalized job at $.source.snapshot_path: snapshot file does not exist"
@@ -153,3 +154,11 @@ def validate_job_semantics(
             )
 
     return snapshot_path
+
+
+def _is_relative_to(path: Path, root: Path) -> bool:
+    try:
+        path.relative_to(root)
+        return True
+    except ValueError:
+        return False

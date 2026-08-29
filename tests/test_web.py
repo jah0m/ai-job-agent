@@ -18,8 +18,7 @@ class DashboardTests(unittest.TestCase):
         self.root = Path(self.temporary.name) / ".job-search"
         self.workspace = Workspace(self.root)
         self.workspace.initialize()
-        candidate_path = self.root / "profile" / "candidate.json"
-        candidate = json.loads(candidate_path.read_text(encoding="utf-8"))
+        candidate = self.workspace.show_candidate_profile()
         candidate.update(
             {
                 "identity": {
@@ -33,13 +32,12 @@ class DashboardTests(unittest.TestCase):
                 "skills": ["Python", "AWS"],
             }
         )
-        candidate_path.write_text(json.dumps(candidate), encoding="utf-8")
-        preferences_path = self.root / "profile" / "preferences.json"
-        preferences = json.loads(preferences_path.read_text(encoding="utf-8"))
+        self.workspace.update_candidate_profile(candidate)
+        preferences = self.workspace.show_preferences()
         preferences.update(
             {"target_roles": ["Backend Engineer"], "locations": ["Tokyo"]}
         )
-        preferences_path.write_text(json.dumps(preferences), encoding="utf-8")
+        self.workspace.update_preferences(preferences)
         payload = normalized_job(
             self.root,
             provider="test",

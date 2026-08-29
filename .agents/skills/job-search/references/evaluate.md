@@ -5,14 +5,16 @@ before creating an application. Read the candidate profile, preferences, full
 posting when available, and the indexed source record. Compare the posting only
 with verified candidate facts and preferences.
 
-Write the structured analysis under `.job-search/cache/`, then persist it with:
+Write the structured analysis under `.job-search/operations/<operation-id>/`, then persist it with:
 
 ```powershell
-python scripts/job_search.py job evaluate <job-id> --file .job-search/cache/evaluation.json
+python scripts/job_search.py job evaluate <job-id> --file .job-search/operations/<operation-id>/evaluation.json
 ```
 
 Do not create an application merely to make the dashboard show a match
 analysis. A chat response or Markdown export does not update the dashboard.
+Successful persistence deletes the staged JSON by default. Invalid or rejected
+JSON remains in place for diagnosis.
 
 When the user decides to pursue an indexed job, create the application with
 `job apply <job-id>`. For a standalone posting that was not imported through a

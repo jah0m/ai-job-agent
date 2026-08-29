@@ -19,7 +19,7 @@ requests a different set.
   and motivation to sourced role or company facts.
 
 Place the prepared files plus `evaluation.json` in a temporary directory under
-`.job-search/cache/`, then save the current mutable draft:
+`.job-search/operations/<operation-id>/`, then save the current mutable draft:
 
 ```powershell
 python scripts/job_search.py draft save <application-id> --from <draft-directory> --status working
@@ -38,9 +38,9 @@ If the user requests changes, update the same draft, validate it again, and
 report the new revision. There is no confirmed or final-version state, and user
 approval of the content must not create a material package. A material package
 is an auxiliary immutable snapshot, normally created automatically when a real
-submission is recorded. Never edit an existing `packages/` or `submitted/`
-directory; restore a package into the mutable draft if its contents must be
-revised.
+submission is recorded. Never edit content-addressed objects or an existing
+package/submission record; restore a package into a new mutable draft revision
+if its contents must be revised.
 
 For `shokumu-keirekisho.md`, use the tracked
 `templates/ja/shokumu-keirekisho.md` as the canonical default reference. It

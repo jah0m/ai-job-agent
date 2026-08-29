@@ -9,8 +9,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from ai_job_search.workspace import Workspace, WorkspaceError, slugify
-from job_fixtures import normalized_job
+from ai_job_search.workspace import Workspace, WorkspaceError, slugify  # noqa: E402
+from job_fixtures import normalized_job  # noqa: E402
 
 JST = timezone(timedelta(hours=9))
 
@@ -152,10 +152,7 @@ Phone: 090-0000-0000 · Email: candidate@example.invalid · [Profile](https://ex
 
     def test_shokumu_template_matches_markdown_resume_shape(self) -> None:
         template = (
-            Path(__file__).resolve().parents[1]
-            / "templates"
-            / "ja"
-            / "shokumu-keirekisho.md"
+            Path(__file__).resolve().parents[1] / "templates" / "ja" / "shokumu-keirekisho.md"
         ).read_text(encoding="utf-8")
         for marker in (
             "# 職務経歴書",
@@ -177,14 +174,13 @@ Phone: 090-0000-0000 · Email: candidate@example.invalid · [Profile](https://ex
         self.assertNotIn("```", template)
 
     def test_initialize_is_idempotent_and_does_not_overwrite_profile(self) -> None:
-        candidate = self.root / "profile" / "candidate.json"
-        profile = json.loads(candidate.read_text(encoding="utf-8"))
+        profile = self.workspace.show_candidate_profile()
         profile["identity"] = {"name": "private"}
-        candidate.write_text(json.dumps(profile), encoding="utf-8")
+        self.workspace.update_candidate_profile(profile)
 
         self.workspace.initialize()
 
-        reloaded = json.loads(candidate.read_text(encoding="utf-8"))
+        reloaded = self.workspace.show_candidate_profile()
         self.assertEqual(reloaded["identity"]["name"], "private")
 
     def test_application_ids_are_stable_and_duplicate_safe(self) -> None:
@@ -228,16 +224,14 @@ Phone: 090-0000-0000 · Email: candidate@example.invalid · [Profile](https://ex
         )
         self.assertEqual(initial_package["kind"], "material_package")
         self.assertEqual(initial_package["source_draft_revision"], 2)
-        self.assertEqual(
-            initial_package["source_draft_id"], f"{application['id']}-draft"
-        )
+        self.assertEqual(initial_package["source_draft_id"], f"{application['id']}-draft")
         self.assertEqual(len(self.workspace.list_packages(application["id"])), 1)
         self.assertEqual(
             self.workspace.show_application(application["id"])["draft"]["status"],
             "working",
         )
 
-        uploaded = self.workspace.save_deliverable_file(
+        self.workspace.save_deliverable_file(
             application["id"],
             filename="application.pdf",
             payload=b"%PDF-1.4 test",
@@ -263,26 +257,22 @@ Phone: 090-0000-0000 · Email: candidate@example.invalid · [Profile](https://ex
         shown = self.workspace.show_application(application["id"])
         self.assertEqual(shown["status"], "applied")
         with self.assertRaisesRegex(WorkspaceError, "permanently locked"):
-            self.workspace.delete_package(
-                application["id"], package_id=package["package_id"]
-            )
+            self.workspace.delete_package(application["id"], package_id=package["package_id"])
         self.assertTrue(self.workspace.audit()["ok"])
 
     def test_content_gate_and_restore_from_package(self) -> None:
         application = self.create_application()
         invalid = self.valid_documents()
         invalid["shokumu-keirekisho.md"] = invalid["shokumu-keirekisho.md"].replace(
-            "- **担当：**".encode("utf-8"),
-            "- **职责：**".encode("utf-8"),
+            "- **担当：**".encode(),
+            "- **职责：**".encode(),
         )
         saved = self.workspace.save_draft(
             application["id"], documents=invalid, status="working", actor="web"
         )
         self.assertFalse(saved["validation"]["format_valid"])
         with self.assertRaisesRegex(WorkspaceError, "cannot be locked"):
-            self.workspace.lock_current_materials(
-                application["id"], require_content_ready=True
-            )
+            self.workspace.lock_current_materials(application["id"], require_content_ready=True)
 
         clean = self.workspace.save_draft(
             application["id"],
@@ -301,11 +291,7 @@ Phone: 090-0000-0000 · Email: candidate@example.invalid · [Profile](https://ex
         self.assertEqual(cloned["base_package_id"], first_package["package_id"])
         changed = self.workspace.save_draft(
             application["id"],
-            documents={
-                "rirekisho.md": self.valid_documents(resume_suffix=" v2")[
-                    "rirekisho.md"
-                ]
-            },
+            documents={"rirekisho.md": self.valid_documents(resume_suffix=" v2")["rirekisho.md"]},
             status="working",
             actor="web",
             expected_revision=cloned["revision"],
@@ -369,9 +355,7 @@ Phone: 090-0000-0000 · Email: candidate@example.invalid · [Profile](https://ex
             ["deliverables/履歴書.pdf"],
         )
         with self.assertRaisesRegex(WorkspaceError, "permanently locked"):
-            self.workspace.delete_package(
-                application["id"], package_id=submission["package_id"]
-            )
+            self.workspace.delete_package(application["id"], package_id=submission["package_id"])
 
     def test_status_only_submission_has_no_material_claim(self) -> None:
         application = self.create_application()
@@ -385,7 +369,7 @@ Phone: 090-0000-0000 · Email: candidate@example.invalid · [Profile](https://ex
         with self.assertRaisesRegex(WorkspaceError, "记录已完成的投递"):
             self.workspace.update_status(application["id"], status="applied")
 
-    def test_discard_draft_moves_previous_files_to_trash(self) -> None:
+    def test_discard_draft_preserves_previous_revision(self) -> None:
         application = self.create_application()
         saved = self.save_valid_draft(application["id"])
         discarded = self.workspace.discard_draft(
@@ -393,43 +377,35 @@ Phone: 090-0000-0000 · Email: candidate@example.invalid · [Profile](https://ex
         )
         self.assertEqual(discarded["status"], "empty")
         self.assertEqual(discarded["revision"], saved["revision"] + 1)
-        self.assertIsNotNone(discarded["trash_path"])
-        self.assertTrue((self.root / discarded["trash_path"]).is_dir())
+        self.assertIsNone(discarded["trash_path"])
+        with self.workspace.connect() as connection:
+            revisions = connection.execute(
+                "SELECT revision FROM draft_revisions WHERE application_id=? ORDER BY revision",
+                (application["id"],),
+            ).fetchall()
+        self.assertEqual([row["revision"] for row in revisions], [0, 1, 2])
         self.assertEqual(self.workspace.show_draft(application["id"])["files"], [])
 
     def test_audit_detects_modified_package(self) -> None:
         application = self.create_application()
         package = self.package_valid_materials(application["id"])
-        package_path = self.workspace._package_path(
-            application["id"], package["package_id"]
+        package_file = self.workspace.package_file_path(
+            application["id"], package["package_id"], "rirekisho.md"
         )
-        (package_path / "rirekisho.md").write_text("tampered", encoding="utf-8")
+        package_file.write_text("tampered", encoding="utf-8")
 
         result = self.workspace.audit()
 
         self.assertFalse(result["ok"])
-        self.assertTrue(
-            any("hash mismatch rirekisho.md" in error for error in result["errors"])
-        )
+        self.assertTrue(any("mismatch object" in error for error in result["errors"]))
 
-    def test_audit_detects_unexpected_package_file(self) -> None:
-        application = self.create_application()
-        package = self.package_valid_materials(application["id"])
-        package_path = self.workspace._package_path(
-            application["id"], package["package_id"]
-        )
-        (package_path / "added-later.txt").write_text(
-            "not manifested", encoding="utf-8"
-        )
+    def test_audit_reports_unreferenced_object_for_gc(self) -> None:
+        digest, _, _ = self.workspace.objects.put_bytes(b"unreferenced")
 
         result = self.workspace.audit()
 
-        self.assertFalse(result["ok"])
-        self.assertTrue(
-            any(
-                "unexpected file added-later.txt" in error for error in result["errors"]
-            )
-        )
+        self.assertTrue(result["ok"])
+        self.assertIn(digest, result["orphan_objects"])
 
     def test_status_rejects_unknown_value(self) -> None:
         application = self.create_application()
@@ -459,26 +435,16 @@ Phone: 090-0000-0000 · Email: candidate@example.invalid · [Profile](https://ex
         jobs = self.workspace.list_jobs()
         application = self.workspace.create_application_from_job(jobs[0]["id"])
 
-        self.assertEqual(
-            first, {"portal": "green", "imported": 1, "updated": 0, "skipped": 0}
-        )
-        self.assertEqual(
-            second, {"portal": "green", "imported": 0, "updated": 1, "skipped": 0}
-        )
+        self.assertEqual(first, {"portal": "green", "imported": 1, "updated": 0, "skipped": 0})
+        self.assertEqual(second, {"portal": "green", "imported": 0, "updated": 1, "skipped": 0})
         self.assertEqual(len(jobs), 1)
         self.assertNotIn("#details", jobs[0]["url"])
         self.assertEqual(application["source_job_id"], jobs[0]["id"])
         self.assertTrue((self.root / application["source"]).is_file())
-        self.assertEqual(
-            self.workspace.list_jobs(status="applied")[0]["id"], jobs[0]["id"]
-        )
+        self.assertEqual(self.workspace.list_jobs(status="applied")[0]["id"], jobs[0]["id"])
         with self.workspace.connect() as connection:
-            connection.execute(
-                "UPDATE jobs SET status = 'saved' WHERE id = ?", (jobs[0]["id"],)
-            )
-        with self.assertRaisesRegex(
-            WorkspaceError, "Applied jobs cannot change back"
-        ):
+            connection.execute("UPDATE jobs SET status = 'saved' WHERE id = ?", (jobs[0]["id"],))
+        with self.assertRaisesRegex(WorkspaceError, "Applied jobs cannot change back"):
             self.workspace.update_job_status(jobs[0]["id"], status="skipped")
         self.workspace.initialize()
         self.assertEqual(self.workspace.show_job(jobs[0]["id"])["status"], "applied")
@@ -531,10 +497,9 @@ Phone: 090-0000-0000 · Email: candidate@example.invalid · [Profile](https://ex
         self.assertEqual(dashboard_rows[0]["evaluation"]["recommendation"], "pursue")
         self.assertEqual(dashboard_rows[0]["raw"]["title"], "AI Engineer")
 
-        preferences_path = self.root / "profile" / "preferences.json"
-        preferences = json.loads(preferences_path.read_text(encoding="utf-8"))
+        preferences = self.workspace.show_preferences()
         preferences["locations"] = ["Osaka"]
-        preferences_path.write_text(json.dumps(preferences), encoding="utf-8")
+        self.workspace.update_preferences(preferences)
         stale = self.workspace.latest_job_evaluation(job_id)
         self.assertTrue(stale["stale"])
         self.assertIn("求职偏好已在分析后更新", stale["stale_reasons"])

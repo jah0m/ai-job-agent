@@ -5,10 +5,9 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from ai_job_search.pdf import normalize_text, verify_pdf
+from ai_job_search.pdf import normalize_text, verify_pdf  # noqa: E402
 
 
 class PdfVerificationTests(unittest.TestCase):

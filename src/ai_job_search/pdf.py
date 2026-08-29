@@ -94,4 +94,3 @@ def verify_pdf(
         "errors": errors,
         "warnings": warnings,
     }
-

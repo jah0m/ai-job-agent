@@ -16,13 +16,11 @@ second profile format here.
 
 ## Establish the starting point
 
-Inspect `.job-search/profile/candidate.json` and
-`.job-search/profile/preferences.json` when they exist. Do not ask for facts
-that are already recorded.
-
 Use `python scripts/job_search.py profile show` and `preferences show` to read
-them. Persist complete replacements with `profile update --file` and
-`preferences update --file`; never edit either authoritative JSON file
+the current records from Storage v2. Do not ask for facts that are already
+recorded. Persist complete replacements with `profile update --file` and
+`preferences update --file`. JSON passed to these commands is an interchange
+or staged input, not an authoritative live record; never edit profile JSON
 directly.
 
 If `.job-search/` is absent, initialize it with:

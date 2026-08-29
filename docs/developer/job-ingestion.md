@@ -29,17 +29,17 @@ Portal CLIs are deterministic, read-only retrievers. They may:
 - return the canonical source URL and provider identity.
 
 They do not decide semantic meaning, evaluate candidate fit, invent missing
-facts, open application/login/referral endpoints, or write to the SQLite index.
+facts, open application/login/referral endpoints, or write to the Storage-v2 database.
 Different portals publish different evidence, so retriever output is not
 expected to contain identical fields.
 
-Save a faithful detail response under `.job-search/cache/`, then register it:
+Save a faithful detail response under `.job-search/operations/<operation-id>/`, then register it:
 
 ```powershell
 python scripts/job_search.py job evidence `
   --portal hrmos `
   --url <public-detail-url> `
-  --snapshot .job-search/cache/hrmos-role-1.json `
+  --snapshot .job-search/operations/<operation-id>/hrmos-role-1.json `
   --retriever ats-search/1
 ```
 
@@ -62,7 +62,7 @@ Rules:
 - `description` is a concise AI-authored summary of the role's mission and core
   duties, not the fetched page body.
 - `field_evidence` contains short, field-specific source excerpts. The complete
-  page remains only in the cache snapshot.
+  page is staged for import and then stored in the immutable object store.
 - Candidate-match conclusions belong to `job evaluate`, not the normalized
   source record.
 
@@ -91,7 +91,7 @@ Example:
     "provider": "test",
     "detail_url": "https://jobs.example.invalid/test-role-001",
     "retrieved_at": "2026-08-29T01:12:22+09:00",
-    "snapshot_path": "cache/hrmos-role-1.json",
+    "snapshot_path": "operations/<operation-id>/hrmos-role-1.json",
     "snapshot_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
     "retriever": "test-search/1"
   },
@@ -160,11 +160,11 @@ Validate the AI output separately from retrieval:
 ```powershell
 python scripts/job_search.py job validate `
   --portal hrmos `
-  --file .job-search/cache/normalized-hrmos-role-1.json
+  --file .job-search/operations/<operation-id>/normalized-hrmos-role-1.json
 
 python scripts/job_search.py job import `
   --portal hrmos `
-  --file .job-search/cache/normalized-hrmos-role-1.json
+  --file .job-search/operations/<operation-id>/normalized-hrmos-role-1.json
 ```
 
 Both commands enforce the packaged `schemas/job-result.schema.json`. They also
@@ -172,7 +172,7 @@ verify:
 
 - provider and canonical detail-URL agreement;
 - timezone-aware retrieval time;
-- a cache-relative snapshot path;
+- an operations- or cache-relative snapshot path;
 - snapshot existence and SHA-256 integrity;
 - salary-bound ordering;
 - remote/office-day consistency;
@@ -182,7 +182,8 @@ Unknown properties, invalid enums, malformed dates, blank strings, stale
 hashes, and inconsistent cross-field values reject the record. A batch is
 fully validated before its database transaction, so one invalid item cannot
 cause a partial import. Re-importing the same portal identity updates the
-existing job instead of creating a duplicate.
+existing job instead of creating a duplicate. Successful import consumes
+staged JSON and snapshots only after commit; failures retain them.
 
 ## 5. Import is not evaluation
 

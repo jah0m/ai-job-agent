@@ -8,11 +8,10 @@ import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
-
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from ai_job_search.cli import main
-from job_fixtures import normalized_job
+from ai_job_search.cli import main  # noqa: E402
+from job_fixtures import normalized_job  # noqa: E402
 
 
 class CliEndToEndTests(unittest.TestCase):
@@ -134,7 +133,8 @@ Phone: 090-0000-0000 · Email: cli@example.invalid
 
     def test_complete_cli_lifecycle(self) -> None:
         self.run_cli("init")
-        snapshot = self.home / "cache" / "ai-1.html"
+        snapshot = self.home / "operations" / "cli-lifecycle" / "ai-1.html"
+        snapshot.parent.mkdir(parents=True, exist_ok=True)
         snapshot.write_text(
             "<html><h1>AI Engineer</h1><p>Public detail page.</p></html>",
             encoding="utf-8",

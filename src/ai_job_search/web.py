@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import secrets
 import os
+import secrets
 from email import policy
 from email.parser import BytesParser
 from pathlib import Path
@@ -93,13 +93,9 @@ def _salary(raw: Any) -> str:
             minimum = value.get("annual_minimum")
             maximum = value.get("annual_maximum")
             currency = str(value.get("currency") or "").upper()
-            if currency == "JPY" and isinstance(minimum, (int, float)):
+            if currency == "JPY" and isinstance(minimum, int | float):
                 lower = f"¥{minimum / 1_000_000:g}M"
-                upper = (
-                    f"¥{maximum / 1_000_000:g}M"
-                    if isinstance(maximum, (int, float))
-                    else ""
-                )
+                upper = f"¥{maximum / 1_000_000:g}M" if isinstance(maximum, int | float) else ""
                 return f"{lower}–{upper}" if upper else f"{lower}以上"
         for tag in _tags(raw):
             if "¥" in tag or "万円" in tag:
@@ -151,9 +147,7 @@ def _job_facts(raw: Any) -> dict[str, Any]:
     languages = raw.get("language_requirements")
     if isinstance(languages, list):
         normalized_languages = [
-            str(value).strip()
-            for value in languages
-            if isinstance(value, str) and value.strip()
+            str(value).strip() for value in languages if isinstance(value, str) and value.strip()
         ]
         if normalized_languages:
             facts["language_requirements"] = normalized_languages
@@ -168,7 +162,11 @@ def _job_remote(raw: Any) -> str:
     if not isinstance(work_style, dict):
         return ""
     remote = work_style.get("remote")
-    return remote if remote in {"onsite", "hybrid", "remote", "unknown"} else ""
+    return (
+        remote
+        if isinstance(remote, str) and remote in {"onsite", "hybrid", "remote", "unknown"}
+        else ""
+    )
 
 
 def _job_office_days(raw: Any) -> int | None:
@@ -216,26 +214,19 @@ def _markdown_blocks(content: str) -> list[dict[str, Any]]:
         if line.startswith("#"):
             marker, _, text = line.partition(" ")
             if text and set(marker) == {"#"}:
-                blocks.append(
-                    {"kind": "heading", "level": min(len(marker), 5), "text": text}
-                )
+                blocks.append({"kind": "heading", "level": min(len(marker), 5), "text": text})
                 index += 1
                 continue
         if line.startswith("|") and index + 1 < len(lines):
             separator = lines[index + 1].strip()
-            separator_marks = (
-                separator.replace("|", "").replace("-", "").replace(":", "").strip()
-            )
+            separator_marks = separator.replace("|", "").replace("-", "").replace(":", "").strip()
             if separator.startswith("|") and not separator_marks:
                 headers = [cell.strip() for cell in line.strip("|").split("|")]
                 rows: list[list[str]] = []
                 index += 2
                 while index < len(lines) and lines[index].strip().startswith("|"):
                     rows.append(
-                        [
-                            cell.strip()
-                            for cell in lines[index].strip().strip("|").split("|")
-                        ]
+                        [cell.strip() for cell in lines[index].strip().strip("|").split("|")]
                     )
                     index += 1
                 blocks.append({"kind": "table", "headers": headers, "rows": rows})
@@ -283,34 +274,93 @@ def _application_ai_prompt(application: dict[str, Any]) -> str:
     source_job_id = application.get("source_job_id") or "未记录"
     application_id = application.get("id", "")
     template_path = "templates/ja/shokumu-keirekisho.md"
-    return f"""Use the `job-search` skill to prepare application materials for this exact application.
-
-Traceability:
-- application_id: {application_id}
-- source_job_id: {source_job_id}
-- company: {application.get('company', '')}
-- role: {application.get('role', '')}
-
-Execute the workflow directly; do not paste the full documents into chat or into the Web dashboard:
-1. Read `.job-search/profile/candidate.json`, `preferences.json`, the archived job posting, and the latest AI evaluation.
-2. Use only verified candidate facts and job evidence. Do not invent dates, employers, responsibilities, metrics, qualifications, or motivation. Record unresolved items as questions.
-3. Prepare both `rirekisho.md` (Japanese resume) and `shokumu-keirekisho.md` (Japanese work history).
-
-Recommended format for `shokumu-keirekisho.md`:
-- First read the tracked canonical template at `{template_path}`. Use it as the default reference when the user has not specified another layout; it is not a mandatory contract.
-- Prefer the template's heading levels, section order, nesting, contact-line placement, bold metadata labels, list/table structure, and table header names when they fit the user's needs. If the user prefers different headings, order, tables, or grouping, follow that preference instead. Replace placeholders with verified candidate facts.
-- The default structure is `# 職務経歴書`, name, one contact/profile line, `## 職務要約`, `## 活かせる経験・知識・技術`, `## テクニカルスキル`, `## 職務経歴`, employer `###` blocks, project `####` blocks, project subsections `##### プロジェクト概要`, `##### 業務内容・工夫`, `##### 成果・実績`, `##### 開発環境`, then `## 資格` and `## 自己PR`. Use it unless the user asks for a different presentation.
-- Keep each employer's metadata bullets and each project's development-environment table in the template format when using the default layout. Do not merge `業務内容・工夫` and `成果・実績` unless the user explicitly prefers a consolidated section.
-- Do not add YAML/front matter, code fences, HTML, JSON, or explanatory prose outside the resume. Before saving the draft, check that the finished Markdown is internally consistent and follows the user's chosen layout.
-- Keep `application_id` and `source_job_id` in the private application state and evaluation only; never insert traceability IDs into the rendered resume body.
-- `rirekisho.md` may use the tracked Japanese resume template; only `shokumu-keirekisho.md` should be supplied to Markdown Resume Studio for the PDF conversion.
-
-4. Put the prepared files plus `evaluation.json` in a temporary directory under `.job-search/cache/`, then save or update the current materials for this application:
-   `python scripts/job_search.py draft save {application_id} --from <draft-directory> --status working`
-5. Run `python scripts/job_search.py draft validate {application_id}` and inspect every reported error or placeholder. Keep every cache artifact and draft associated with application_id `{application_id}` and do not mix it with another application.
-6. Report the concise summary, format-check result, and unresolved questions. The user may continue editing the same current materials.
-7. Do not generate a PDF in AI Job Agent. The user may export through Docs/Word/a company template; for the 職務経歴書, mention Markdown Resume Studio as an optional external formatting tool.
-8. Do not create a submission record unless the user separately confirms that the application was actually sent. The Web flow will automatically lock the current materials as an immutable material package when it records a submission."""
+    return "\n".join(
+        (
+            "Use the `job-search` skill to prepare application materials for this exact application.",
+            "",
+            "Traceability:",
+            f"- application_id: {application_id}",
+            f"- source_job_id: {source_job_id}",
+            f"- company: {application.get('company', '')}",
+            f"- role: {application.get('role', '')}",
+            "",
+            "Execute the workflow directly; do not paste the full documents into chat or into the Web dashboard:",
+            (
+                "1. Read the application through `python scripts/job_search.py application show "
+                f"{application_id}` and read profile/preferences through `profile show` and `preferences show`. "
+                "Treat the Storage-v2 CLI as authoritative; do not read workspace JSON files directly. "
+                f"Use source job `{source_job_id}` and its latest persisted AI evaluation from the returned workspace state."
+            ),
+            (
+                "2. Use only verified candidate facts and job evidence. Do not invent dates, employers, "
+                "responsibilities, metrics, qualifications, or motivation. Record unresolved items as questions."
+            ),
+            "3. Prepare both `rirekisho.md` (Japanese resume) and `shokumu-keirekisho.md` (Japanese work history).",
+            "",
+            "Recommended format for `shokumu-keirekisho.md`:",
+            (
+                f"- First read the tracked canonical template at `{template_path}`. Use it as the default reference "
+                "when the user has not specified another layout; it is not a mandatory contract."
+            ),
+            (
+                "- Prefer the template's heading levels, section order, nesting, contact-line placement, bold "
+                "metadata labels, list/table structure, and table header names when they fit the user's needs. "
+                "If the user prefers different headings, order, tables, or grouping, follow that preference instead. "
+                "Replace placeholders with verified candidate facts."
+            ),
+            (
+                "- The default structure is `# 職務経歴書`, name, one contact/profile line, `## 職務要約`, "
+                "`## 活かせる経験・知識・技術`, `## テクニカルスキル`, `## 職務経歴`, employer `###` blocks, "
+                "project `####` blocks, project subsections `##### プロジェクト概要`, `##### 業務内容・工夫`, "
+                "`##### 成果・実績`, `##### 開発環境`, then `## 資格` and `## 自己PR`. Use it unless the user "
+                "asks for a different presentation."
+            ),
+            (
+                "- Keep each employer's metadata bullets and each project's development-environment table in the "
+                "template format when using the default layout. Do not merge `業務内容・工夫` and `成果・実績` "
+                "unless the user explicitly prefers a consolidated section."
+            ),
+            (
+                "- Do not add YAML/front matter, code fences, HTML, JSON, or explanatory prose outside the resume. "
+                "Before saving the draft, check that the finished Markdown is internally consistent and follows the "
+                "user's chosen layout."
+            ),
+            (
+                "- Keep `application_id` and `source_job_id` in the private application state and evaluation only; "
+                "never insert traceability IDs into the rendered resume body."
+            ),
+            (
+                "- `rirekisho.md` may use the tracked Japanese resume template; only `shokumu-keirekisho.md` should "
+                "be supplied to Markdown Resume Studio for the PDF conversion."
+            ),
+            "",
+            (
+                "4. Put only the prepared draft files in a temporary directory under `.job-search/operations/`, "
+                "then save or update the current materials for this application:"
+            ),
+            f"   `python scripts/job_search.py draft save {application_id} --from <draft-directory> --status working`",
+            (
+                "   Remove that temporary directory after the save succeeds; retain it for diagnosis if the save "
+                "fails. Persist any new job analysis separately with `job-search job evaluate`, whose staged JSON is "
+                "consumed after a successful commit."
+            ),
+            (
+                f"5. Run `python scripts/job_search.py draft validate {application_id}` and inspect every reported "
+                "error or placeholder. Keep every temporary operation and draft associated with application_id "
+                f"`{application_id}` and do not mix it with another application."
+            ),
+            "6. Report the concise summary, format-check result, and unresolved questions. The user may continue editing the same current materials.",
+            (
+                "7. Do not generate a PDF in AI Job Agent. The user may export through Docs/Word/a company template; "
+                "for the 職務経歴書, mention Markdown Resume Studio as an optional external formatting tool."
+            ),
+            (
+                "8. Do not create a submission record unless the user separately confirms that the application was "
+                "actually sent. The Web flow will automatically lock the current materials as an immutable material "
+                "package when it records a submission."
+            ),
+        )
+    )
 
 
 async def _multipart_values(
@@ -327,10 +377,7 @@ async def _multipart_values(
     if len(body) > 25 * 1024 * 1024:
         raise WorkspaceError("Upload request is too large")
     message = BytesParser(policy=policy.default).parsebytes(
-        b"Content-Type: "
-        + content_type.encode("ascii")
-        + b"\r\nMIME-Version: 1.0\r\n\r\n"
-        + body
+        b"Content-Type: " + content_type.encode("ascii") + b"\r\nMIME-Version: 1.0\r\n\r\n" + body
     )
     if not message.is_multipart():
         raise WorkspaceError("Invalid multipart upload")
@@ -338,9 +385,10 @@ async def _multipart_values(
     files: dict[str, tuple[str, bytes]] = {}
     for part in message.iter_parts():
         name = part.get_param("name", header="content-disposition")
-        if not name:
+        if not isinstance(name, str) or not name:
             continue
-        payload = part.get_payload(decode=True) or b""
+        decoded_payload = part.get_payload(decode=True)
+        payload = decoded_payload if isinstance(decoded_payload, bytes) else b""
         filename = part.get_filename()
         if filename:
             files[name] = (Path(filename).name, payload)
@@ -350,7 +398,12 @@ async def _multipart_values(
 
 
 def create_app(workspace_root: str | Path | None = None) -> FastAPI:
-    workspace = Workspace(workspace_root or os.getenv("JOB_ATLAS_HOME", ".job-search"))
+    resolved_root = (
+        workspace_root
+        if workspace_root is not None
+        else (os.getenv("JOB_ATLAS_HOME") or ".job-search")
+    )
+    workspace = Workspace(resolved_root)
     workspace.initialize()
 
     app = FastAPI(title="AI Job Agent", docs_url=None, redoc_url=None)
@@ -382,12 +435,8 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
         draft = workspace.show_draft(application_id)
         for package in application["packages"]:
             package["files"] = workspace.package_files(application_id, package["id"])
-            package["readiness"] = workspace.package_readiness(
-                application_id, package["id"]
-            )
-            package["is_submitted"] = workspace.package_is_submitted(
-                application_id, package["id"]
-            )
+            package["readiness"] = workspace.package_readiness(application_id, package["id"])
+            package["is_submitted"] = workspace.package_is_submitted(application_id, package["id"])
             package["can_delete"] = not package["is_submitted"]
         draft["deliverable_files"] = [
             item
@@ -397,9 +446,7 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
         return {"application": application, "draft": draft}
 
     async def form_values(request: Request) -> dict[str, list[str]]:
-        values = parse_qs(
-            (await request.body()).decode("utf-8"), keep_blank_values=True
-        )
+        values = parse_qs((await request.body()).decode("utf-8"), keep_blank_values=True)
         token = _value(values, "csrf_token")
         if not secrets.compare_digest(token, app.state.csrf_token):
             raise HTTPException(status_code=403, detail="Invalid CSRF token")
@@ -412,9 +459,7 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
             "status_labels": STATUS_LABELS,
             "application_labels": APPLICATION_LABELS,
             "draft_status_labels": DRAFT_LABELS,
-            "profile_sections": [
-                {"label": label, "key": key} for label, key in PROFILE_SECTIONS
-            ],
+            "profile_sections": [{"label": label, "key": key} for label, key in PROFILE_SECTIONS],
         }
 
     @app.get("/api/v1/jobs")
@@ -442,8 +487,7 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
                 for job in jobs
                 if normalized_query
                 in " ".join(
-                    str(job.get(key) or "")
-                    for key in ("title", "company", "location", "portal")
+                    str(job.get(key) or "") for key in ("title", "company", "location", "portal")
                 ).casefold()
             ]
         if portal:
@@ -454,21 +498,15 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
             jobs = [
                 job
                 for job in jobs
-                if (job.get("evaluation") or {}).get("recommendation")
-                == recommendation
+                if (job.get("evaluation") or {}).get("recommendation") == recommendation
             ]
         if rating == "unrated":
             jobs = [job for job in jobs if job.get("rating") is None]
         elif rating in {"3", "4"}:
             minimum_rating = int(rating)
-            jobs = [
-                job
-                for job in jobs
-                if (job.get("rating") or 0) >= minimum_rating
-            ]
+            jobs = [job for job in jobs if (job.get("rating") or 0) >= minimum_rating]
         counts = {
-            key: sum(_job_status_bucket(job) == key for job in jobs)
-            for key in JOB_STATUS_BUCKETS
+            key: sum(_job_status_bucket(job) == key for job in jobs) for key in JOB_STATUS_BUCKETS
         }
         if status:
             jobs = [job for job in jobs if _job_status_bucket(job) == status]
@@ -543,12 +581,8 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
         items = []
         for application in workspace.list_applications():
             for package in workspace.list_packages(application["id"]):
-                package["files"] = workspace.package_files(
-                    application["id"], package["id"]
-                )
-                package["readiness"] = workspace.package_readiness(
-                    application["id"], package["id"]
-                )
+                package["files"] = workspace.package_files(application["id"], package["id"])
+                package["readiness"] = workspace.package_readiness(application["id"], package["id"])
                 package["is_submitted"] = workspace.package_is_submitted(
                     application["id"], package["id"]
                 )
@@ -562,7 +596,7 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
             {"label": label, "key": key, "complete": bool(candidate.get(key))}
             for label, key in PROFILE_SECTIONS
         ]
-        completed = sum(item["complete"] for item in section_status)
+        completed = sum(1 for item in section_status if item["complete"] is True)
         completion = round(completed / len(section_status) * 100)
         return {
             "candidate": candidate,
@@ -617,18 +651,17 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
             path = workspace.package_file_path(application_id, package_id, relative_path)
             application = workspace.show_application(application_id)
             package = next(
-                item
-                for item in workspace.list_packages(application_id)
-                if item["id"] == package_id
+                item for item in workspace.list_packages(application_id) if item["id"] == package_id
             )
         except (WorkspaceError, StopIteration) as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
-        if path.suffix.lower() != ".md":
+        logical = Path(relative_path)
+        if logical.suffix.lower() != ".md":
             raise HTTPException(status_code=400, detail="Only Markdown files can be previewed")
         title = {
             "rirekisho.md": "履歴書",
             "shokumu-keirekisho.md": "职务经历书",
-        }.get(path.name, path.stem)
+        }.get(logical.name, logical.stem)
         content = path.read_text(encoding="utf-8")
         return {
             "application": application,
@@ -665,9 +698,7 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
         raw_rating = _value(values, "rating")
         try:
             rating = int(raw_rating) if raw_rating else None
-            workspace.update_job_review(
-                job_id, rating=rating, notes=_value(values, "notes")
-            )
+            workspace.update_job_review(job_id, rating=rating, notes=_value(values, "notes"))
         except (ValueError, WorkspaceError) as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return RedirectResponse(url=f"/?selected={job_id}", status_code=303)
@@ -679,14 +710,10 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
             application = workspace.create_application_from_job(job_id)
         except WorkspaceError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
-        return RedirectResponse(
-            url=f"/applications/{application['id']}", status_code=303
-        )
+        return RedirectResponse(url=f"/applications/{application['id']}", status_code=303)
 
     @app.post("/applications/{application_id}/status")
-    async def update_application_status(
-        application_id: str, request: Request
-    ) -> RedirectResponse:
+    async def update_application_status(application_id: str, request: Request) -> RedirectResponse:
         values = await form_values(request)
         try:
             workspace.update_status(
@@ -697,16 +724,12 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
         except WorkspaceError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return RedirectResponse(
-            url=_safe_return(
-                _value(values, "return_to"), f"/applications/{application_id}"
-            ),
+            url=_safe_return(_value(values, "return_to"), f"/applications/{application_id}"),
             status_code=303,
         )
 
     @app.post("/applications/{application_id}/draft/upload")
-    async def upload_application_draft(
-        application_id: str, request: Request
-    ) -> RedirectResponse:
+    async def upload_application_draft(application_id: str, request: Request) -> RedirectResponse:
         try:
             values, uploads = await _multipart_values(request)
             token = _value(values, "csrf_token")
@@ -742,9 +765,7 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
         return RedirectResponse(url=f"/applications/{application_id}", status_code=303)
 
     @app.post("/applications/{application_id}/draft/validate")
-    async def validate_application_draft(
-        application_id: str, request: Request
-    ) -> RedirectResponse:
+    async def validate_application_draft(application_id: str, request: Request) -> RedirectResponse:
         await form_values(request)
         try:
             workspace.validate_draft(application_id, actor="web")
@@ -753,9 +774,7 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
         return RedirectResponse(url=f"/applications/{application_id}", status_code=303)
 
     @app.post("/applications/{application_id}/materials/package")
-    async def save_material_package(
-        application_id: str, request: Request
-    ) -> RedirectResponse:
+    async def save_material_package(application_id: str, request: Request) -> RedirectResponse:
         values = await form_values(request)
         try:
             raw_revision = _value(values, "expected_revision")
@@ -771,9 +790,7 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
         return RedirectResponse(url=f"/applications/{application_id}", status_code=303)
 
     @app.post("/applications/{application_id}/draft/discard")
-    async def discard_application_draft(
-        application_id: str, request: Request
-    ) -> RedirectResponse:
+    async def discard_application_draft(application_id: str, request: Request) -> RedirectResponse:
         values = await form_values(request)
         try:
             raw_revision = _value(values, "expected_revision")
@@ -859,17 +876,13 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
     ) -> RedirectResponse:
         values = await form_values(request)
         if relative_path not in {"rirekisho.md", "shokumu-keirekisho.md"}:
-            raise HTTPException(
-                status_code=400, detail="Only application Markdown can be edited"
-            )
+            raise HTTPException(status_code=400, detail="Only application Markdown can be edited")
         try:
             raw_revision = _value(values, "expected_revision")
             expected_revision = int(raw_revision) if raw_revision else None
             workspace.save_draft(
                 application_id,
-                documents={
-                    relative_path: _raw_value(values, "content").encode("utf-8")
-                },
+                documents={relative_path: _raw_value(values, "content").encode("utf-8")},
                 label=_value(values, "label") or f"在线编辑 · {relative_path}",
                 status="working",
                 actor="web",
@@ -891,9 +904,7 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
         return RedirectResponse(url=f"/applications/{application_id}", status_code=303)
 
     @app.post("/applications/{application_id}/submit")
-    async def record_submission(
-        application_id: str, request: Request
-    ) -> RedirectResponse:
+    async def record_submission(application_id: str, request: Request) -> RedirectResponse:
         values = await form_values(request)
         try:
             raw_revision = _value(values, "expected_revision")
@@ -918,37 +929,35 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
             path = workspace.draft_file_path(application_id, relative_path)
         except WorkspaceError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
-        if path.suffix.lower() == ".pdf":
+        logical = Path(relative_path)
+        if logical.suffix.lower() == ".pdf":
             return FileResponse(
                 path,
-                filename=path.name,
+                filename=logical.name,
                 media_type="application/pdf",
                 content_disposition_type="inline",
                 headers={"Cache-Control": "private, no-store"},
             )
-        return FileResponse(path, filename=path.name)
+        return FileResponse(path, filename=logical.name)
 
-    @app.get(
-        "/applications/{application_id}/packages/{package_id}/files/{relative_path:path}"
-    )
+    @app.get("/applications/{application_id}/packages/{package_id}/files/{relative_path:path}")
     def download_package_file(
         application_id: str, package_id: str, relative_path: str
     ) -> FileResponse:
         try:
-            path = workspace.package_file_path(
-                application_id, package_id, relative_path
-            )
+            path = workspace.package_file_path(application_id, package_id, relative_path)
         except WorkspaceError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
-        if path.suffix.lower() == ".pdf":
+        logical = Path(relative_path)
+        if logical.suffix.lower() == ".pdf":
             return FileResponse(
                 path,
-                filename=path.name,
+                filename=logical.name,
                 media_type="application/pdf",
                 content_disposition_type="inline",
                 headers={"Cache-Control": "private, no-store"},
             )
-        return FileResponse(path, filename=path.name)
+        return FileResponse(path, filename=logical.name)
 
     @app.post("/profile/edit")
     async def save_profile(request: Request) -> RedirectResponse:
@@ -965,10 +974,7 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
                 "product": _value(values, f"experience_product_{index}"),
                 "facts": _lines(_value(values, f"experience_facts_{index}")),
             }
-            if (
-                any(value for key, value in item.items() if key != "facts")
-                or item["facts"]
-            ):
+            if any(value for key, value in item.items() if key != "facts") or item["facts"]:
                 experience.append(item)
         education = []
         for index in range(_bounded_count(values, "education_count")):
@@ -1035,9 +1041,7 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
                     "locations": _lines(_value(values, "locations")),
                     "work_style": {
                         "remote_preferred": "remote_preferred" in values,
-                        "maximum_office_days_per_week": (
-                            int(office_days) if office_days else None
-                        ),
+                        "maximum_office_days_per_week": (int(office_days) if office_days else None),
                         "autonomy_preferred": "autonomy_preferred" in values,
                         "focus_time_preferred": "focus_time_preferred" in values,
                     },
@@ -1048,9 +1052,7 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
                     },
                     "hard_constraints": _lines(_value(values, "hard_constraints")),
                     "soft_preferences": _lines(_value(values, "soft_preferences")),
-                    "blacklisted_companies": _lines(
-                        _value(values, "blacklisted_companies")
-                    ),
+                    "blacklisted_companies": _lines(_value(values, "blacklisted_companies")),
                 }
             )
             workspace.update_preferences(current)

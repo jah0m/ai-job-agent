@@ -39,9 +39,7 @@ class JobContractTests(unittest.TestCase):
     def test_optional_page_fields_may_be_omitted(self) -> None:
         path = self.write_job(self.basic_job())
 
-        checked = self.workspace.import_jobs(
-            portal="test", source_file=path, validate_only=True
-        )
+        checked = self.workspace.import_jobs(portal="test", source_file=path, validate_only=True)
         imported = self.workspace.import_jobs(portal="test", source_file=path)
 
         self.assertTrue(checked["valid"])
@@ -52,9 +50,7 @@ class JobContractTests(unittest.TestCase):
             work_style={"remote": "sometimes", "source_text": "Sometimes remote"}
         )
         with self.assertRaisesRegex(WorkspaceError, "sometimes"):
-            self.workspace.import_jobs(
-                portal="test", source_file=self.write_job(invalid_remote)
-            )
+            self.workspace.import_jobs(portal="test", source_file=self.write_job(invalid_remote))
 
         for days in (0, 6):
             with self.subTest(days=days):

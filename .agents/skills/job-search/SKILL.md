@@ -54,22 +54,25 @@ the user for facts already recorded there. Do not silently change candidate
 facts: separate verified facts from inferred positioning and ask for confirmation
 before persisting a material inference.
 
-Codex must not directly edit `.job-search/profile/candidate.json` or
-`.job-search/profile/preferences.json`. Read and persist these authoritative
-files through `job-search profile show|update` and
-`job-search preferences show|update`, respectively. User edits through Job
-Atlas Web remain supported because the Web and CLI use the same validated
-`Workspace` methods. Direct editing is allowed only for temporary staging files
-intentionally created under `.job-search/cache/` for an active operation.
+Candidate facts and preferences are versioned in the private SQLite database.
+Read and persist them only through `job-search profile show|update` and
+`job-search preferences show|update`. User edits through AI Job Agent Web remain
+supported because the Web and CLI use the same validated storage service.
+Codex may write temporary JSON only under `.job-search/operations/<operation-id>/`
+(`.job-search/cache/` input remains accepted). Successful `job import`
+and `job evaluate` commands consume staged JSON and source snapshots by default;
+failed inputs remain available for diagnosis. Use `--keep-input` only when the
+user explicitly needs successful staging input retained.
 
 Use `draft save` while documents are being generated or revised. The current
 draft is intentionally mutable and can be updated after user feedback. Validate
 it with `draft validate`, but do not turn user confirmation into a separate
 version or package. Material packages are immutable snapshots, not confirmed
 versions; normal submission recording creates one automatically when the
-evidence level includes materials. Never edit files already stored in
-`packages/` or `submitted/`; restore a package into the mutable draft when
-changes are needed. Run `submit` only after the user confirms that an external
+evidence level includes materials. Packages and submissions reference immutable
+content-addressed objects. Never edit `.job-search/objects/`; restore a package
+into a new mutable draft revision when changes are needed. Run `submit` only
+after the user confirms that an external
 submission actually occurred, then report the recorded package and submission
 IDs. The CLI records local state and does not send an application.
 

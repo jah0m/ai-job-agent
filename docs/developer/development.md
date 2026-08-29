@@ -13,9 +13,25 @@ with the [first-use guide](../user/first-use-guide.md).
 An editable install provides the `job-search` command:
 
 ```powershell
-python -m pip install -e .
+python -m pip install -e ".[web,pdf,dev]"
 python scripts/job_search.py --help
 ```
+
+The repository quality gates are the same locally and in CI. They cover every
+production module under `src/ai_job_search` and the repository Python helpers;
+do not replace them with a partial module check:
+
+```powershell
+python -m ruff check src tests scripts
+python -m mypy src/ai_job_search
+python -m coverage run --branch -m unittest discover -s tests -v
+python -m coverage report --show-missing --fail-under=80
+python tools/security_guards.py
+```
+
+Coverage uses branch measurement and has a repository-wide 80% fail-under
+threshold. The full unittest suite is run once under coverage, so a separate
+uncovered test run is unnecessary.
 
 ## Core CLI
 
@@ -76,11 +92,17 @@ FastAPI service on port 8765. `npm run build` writes the production SPA to
 
 ```powershell
 python -m unittest discover -s tests -v
+python tools/security_guards.py
 Push-Location frontend
 npm run check
 npm run build
 Pop-Location
 ```
+
+CI also runs the offline Bun suites for LinkedIn, Green, Geekly, TokyoDev,
+LAPRAS, and HERP/HRMOS under `.agents/skills/*/cli/`. These portal suites are
+independent of the Python Storage-v2 implementation and should remain in the
+release gate.
 
 See [architecture](architecture.md) and the [storage model](storage-model.md)
 for further implementation context. The complete retriever → evidence → AI

@@ -3,11 +3,12 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 
-from .workspace import VALID_STATUSES, Workspace, WorkspaceError
 from .pdf import verify_pdf
+from .workspace import VALID_STATUSES, Workspace, WorkspaceError
 
 
 def _print(data: Any) -> None:
@@ -35,6 +36,7 @@ def build_parser() -> argparse.ArgumentParser:
         "update", help="Replace the candidate profile from a validated JSON file"
     )
     profile_update.add_argument("--file", required=True, type=Path)
+    profile_update.add_argument("--keep-input", action="store_true")
 
     preferences = commands.add_parser(
         "preferences", help="Read or update job-search preferences"
@@ -47,6 +49,7 @@ def build_parser() -> argparse.ArgumentParser:
         "update", help="Replace job-search preferences from a validated JSON file"
     )
     preferences_update.add_argument("--file", required=True, type=Path)
+    preferences_update.add_argument("--keep-input", action="store_true")
 
     application = commands.add_parser("application", help="Manage applications")
     application_commands = application.add_subparsers(dest="application_command", required=True)
@@ -80,6 +83,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     job_import.add_argument("--portal", required=True)
     job_import.add_argument("--file", required=True, type=Path)
+    job_import.add_argument(
+        "--keep-input", action="store_true",
+        help="Keep a successfully consumed JSON file under cache/ or operations/",
+    )
     job_list = job_commands.add_parser("list", help="List discovered jobs")
     job_list.add_argument("--status", choices=["new", "saved", "skipped", "applied"])
     job_status = job_commands.add_parser("status", help="Update discovered-job status")
@@ -90,6 +97,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     job_evaluate.add_argument("job_id")
     job_evaluate.add_argument("--file", required=True, type=Path)
+    job_evaluate.add_argument(
+        "--keep-input", action="store_true",
+        help="Keep a successfully consumed evaluation JSON under cache/ or operations/",
+    )
     job_apply = job_commands.add_parser("apply", help="Create an application from a discovered job")
     job_apply.add_argument("job_id")
 
@@ -160,6 +171,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     commands.add_parser("export", help="Export a portable JSON summary")
     commands.add_parser("audit", help="Verify all stored artifact hashes")
+    gc = commands.add_parser("gc", help="Find or trash unreferenced content objects")
+    gc.add_argument("--apply", action="store_true", help="Move unreferenced objects to local trash")
 
     document = commands.add_parser("document", help="Validate generated documents")
     document_commands = document.add_subparsers(dest="document_command", required=True)
@@ -194,15 +207,21 @@ def run(args: argparse.Namespace) -> Any:
     if args.command == "profile":
         if args.profile_command == "show":
             return workspace.show_candidate_profile()
-        return workspace.update_candidate_profile(
+        result = workspace.update_candidate_profile(
             _read_json_file(args.file, label="candidate profile")
         )
+        if not args.keep_input:
+            workspace.consume_staging_file(args.file)
+        return result
     if args.command == "preferences":
         if args.preferences_command == "show":
             return workspace.show_preferences()
-        return workspace.update_preferences(
+        result = workspace.update_preferences(
             _read_json_file(args.file, label="preferences")
         )
+        if not args.keep_input:
+            workspace.consume_staging_file(args.file)
+        return result
     if args.command == "apply" or (
         args.command == "application" and args.application_command == "create"
     ):
@@ -229,7 +248,9 @@ def run(args: argparse.Namespace) -> Any:
                 portal=args.portal, source_file=args.file, validate_only=True
             )
         if args.job_command == "import":
-            return workspace.import_jobs(portal=args.portal, source_file=args.file)
+            return workspace.import_jobs(
+                portal=args.portal, source_file=args.file, consume=not args.keep_input
+            )
         if args.job_command == "list":
             return workspace.list_jobs(status=args.status)
         if args.job_command == "status":
@@ -237,7 +258,10 @@ def run(args: argparse.Namespace) -> Any:
         if args.job_command == "evaluate":
             workspace.initialize()
             evaluation = _read_json_file(args.file, label="evaluation")
-            return workspace.record_job_evaluation(args.job_id, evaluation)
+            result = workspace.record_job_evaluation(args.job_id, evaluation)
+            if not args.keep_input:
+                workspace.consume_staging_file(args.file)
+            return result
         return workspace.create_application_from_job(args.job_id)
     if args.command == "draft":
         if args.draft_command == "show":
@@ -293,6 +317,8 @@ def run(args: argparse.Namespace) -> Any:
         if not result["ok"]:
             raise WorkspaceError("Audit failed: " + "; ".join(result["errors"]))
         return result
+    if args.command == "gc":
+        return workspace.garbage_collect(dry_run=not args.apply)
     if args.command == "document":
         result = verify_pdf(
             args.pdf,
