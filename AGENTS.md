@@ -23,8 +23,12 @@ Japanese mid-career market.
   chat response or Markdown export alone does not update the Web dashboard.
   Strengths and gaps must be AI-authored, evidence-backed conclusions rather
   than keyword intersections.
-- Japanese applications use both a 履歴書 and a 職務経歴書 unless the job or
-  user explicitly requires a different document set.
+- Japanese applications use one job-specific 職務経歴書. The application
+  Markdown contract, editor, preview, and readiness checks support only
+  `shokumu-keirekisho.md`.
+- Users may also upload a self-maintained fixed-format 履歴書 as a PDF or
+  DOCX for material packages and submission records; Codex does not generate
+  or edit that document.
 - Run `python -m unittest discover -s tests -v` after Python changes.
 - The repository Python gates are `python -m ruff check src tests scripts`,
   `python -m mypy src/ai_job_search`, and branch coverage via

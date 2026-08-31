@@ -80,33 +80,7 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         return response.json()["csrf_token"]
 
-    def valid_documents(self, *, resume_suffix: str = "") -> dict[str, bytes]:
-        resume = f"""# 履歴書
-
-## 基本情報
-
-- 氏名：Web Candidate{resume_suffix}
-- 連絡先：web@example.invalid
-- 居住地：Tokyo
-
-## 学歴・職歴
-
-| 年月 | 内容 |
-| --- | --- |
-| 2022年 | Example University |
-
-## 免許・資格
-
-- なし
-
-## 志望動機・自己PR
-
-Reliable engineer.
-
-## 本人希望欄
-
-貴社規定に従います。
-"""
+    def valid_documents(self, *, suffix: str = "") -> dict[str, bytes]:
         shokumu = """# 職務経歴書
 
 **Web Candidate
@@ -169,10 +143,7 @@ Phone: 090-0000-0000 · Email: web@example.invalid
 
 事実に基づき丁寧に開発します。
 """
-        return {
-            "rirekisho.md": resume.encode("utf-8"),
-            "shokumu-keirekisho.md": shokumu.encode("utf-8"),
-        }
+        return {"shokumu-keirekisho.md": (shokumu + suffix).encode("utf-8")}
 
     def test_spa_shell_and_jobs_api(self) -> None:
         response = self.client.get("/")
@@ -510,10 +481,15 @@ Phone: 090-0000-0000 · Email: web@example.invalid
             "source_job_id",
             "templates/ja/shokumu-keirekisho.md",
             "canonical template",
+            "Prepare only",
+            "Do not create any other application Markdown files",
             "Do not generate a PDF in AI Job Agent",
             "automatically lock the current materials",
         ):
             self.assertIn(expected, prompt)
+        self.assertNotIn("Prepare both", prompt)
+        self.assertNotIn("rirekisho", prompt)
+        self.assertNotIn("履歴書", prompt)
         self.assertEqual(
             self.client.post(f"/applications/{application['id']}/generate").status_code,
             404,
@@ -531,16 +507,32 @@ Phone: 090-0000-0000 · Email: web@example.invalid
         detail = self.client.get(f"/applications/{application['id']}")
         self.assertIn('id="root"', detail.text)
         draft_preview = self.client.get(
-            f"/api/v1/applications/{application['id']}/draft/preview/rirekisho.md"
+            f"/api/v1/applications/{application['id']}/draft/preview/shokumu-keirekisho.md"
         )
         self.assertEqual(draft_preview.status_code, 200)
-        self.assertEqual(draft_preview.json()["document_title"], "履歴書")
+        self.assertEqual(draft_preview.json()["document_title"], "职务经历书")
         self.assertIn("Web Candidate", draft_preview.json()["content"])
         draft_download = self.client.get(
-            f"/applications/{application['id']}/draft/files/rirekisho.md"
+            f"/applications/{application['id']}/draft/files/shokumu-keirekisho.md"
         )
         self.assertEqual(draft_download.status_code, 200)
-        self.assertIn("履歴書", draft_download.text)
+        self.assertIn("職務経歴書", draft_download.text)
+        unsupported_preview = self.client.get(
+            f"/api/v1/applications/{application['id']}/draft/preview/other-application.md"
+        )
+        self.assertEqual(unsupported_preview.status_code, 400)
+        unsupported_download = self.client.get(
+            f"/applications/{application['id']}/draft/files/other-application.md"
+        )
+        self.assertEqual(unsupported_download.status_code, 400)
+        legacy_preview = self.client.get(
+            f"/api/v1/applications/{application['id']}/draft/preview/rirekisho.md"
+        )
+        self.assertEqual(legacy_preview.status_code, 400)
+        legacy_download = self.client.get(
+            f"/applications/{application['id']}/draft/files/rirekisho.md"
+        )
+        self.assertEqual(legacy_download.status_code, 400)
 
         token = self.csrf_token(f"/applications/{application['id']}")
         packaged = self.client.post(
@@ -561,24 +553,12 @@ Phone: 090-0000-0000 · Email: web@example.invalid
                 application["id"], packages[0]["id"]
             )
         }
-        self.assertEqual(files, {"rirekisho.md", "shokumu-keirekisho.md"})
+        self.assertEqual(files, {"shokumu-keirekisho.md"})
         detail = self.client.get(f"/applications/{application['id']}")
         self.assertIn('id="root"', detail.text)
         catalog = self.client.get("/api/v1/packages")
         self.assertEqual(catalog.status_code, 200)
         self.assertEqual(catalog.json()["items"][0]["package"]["label"], "AI draft from Codex")
-        preview = self.client.get(
-            f"/api/v1/applications/{application['id']}/packages/{packages[0]['id']}"
-            "/preview/rirekisho.md"
-        )
-        self.assertEqual(preview.status_code, 200)
-        self.assertEqual(preview.json()["document_title"], "履歴書")
-        self.assertIn("Web Candidate", preview.json()["content"])
-        downloaded = self.client.get(
-            f"/applications/{application['id']}/packages/{packages[0]['id']}/files/rirekisho.md"
-        )
-        self.assertEqual(downloaded.status_code, 200)
-        self.assertIn("履歴書", downloaded.text)
         work_history = self.client.get(
             f"/applications/{application['id']}/packages/{packages[0]['id']}"
             "/files/shokumu-keirekisho.md"
@@ -654,11 +634,6 @@ Phone: 090-0000-0000 · Email: web@example.invalid
                 "label": "Uploaded draft",
             },
             files={
-                "rirekisho": (
-                    "rirekisho.md",
-                    documents["rirekisho.md"],
-                    "text/markdown",
-                ),
                 "shokumu_keirekisho": (
                     "shokumu-keirekisho.md",
                     documents["shokumu-keirekisho.md"],
@@ -670,24 +645,48 @@ Phone: 090-0000-0000 · Email: web@example.invalid
         self.assertEqual(uploaded.status_code, 303)
         self.assertEqual(len(self.workspace.list_packages(application["id"])), 0)
         self.assertEqual(self.workspace.show_draft(application["id"])["revision"], 1)
-
-        editor = self.client.get(
-            f"/applications/{application['id']}/draft/edit/rirekisho.md"
+        unsupported_upload = self.client.post(
+            f"/applications/{application['id']}/draft/upload",
+            data={"csrf_token": token, "expected_revision": "1"},
+            files={"other_document": ("other.md", b"# unsupported", "text/markdown")},
+            follow_redirects=False,
         )
-        self.assertEqual(editor.status_code, 200)
-        self.assertIn('id="root"', editor.text)
-        revised_resume = (
-            documents["rirekisho.md"]
-            .decode("utf-8")
-            .replace("Web Candidate", "Web Candidate Revised")
+        self.assertEqual(unsupported_upload.status_code, 400)
+        legacy_upload = self.client.post(
+            f"/applications/{application['id']}/draft/upload",
+            data={"csrf_token": token, "expected_revision": "1"},
+            files={"rirekisho": ("rirekisho.md", b"# unsupported", "text/markdown")},
+            follow_redirects=False,
         )
-        edited = self.client.post(
+        self.assertEqual(legacy_upload.status_code, 400)
+        unsupported_editor = self.client.post(
             f"/applications/{application['id']}/draft/edit/rirekisho.md",
             data={
                 "csrf_token": token,
                 "expected_revision": "1",
+                "content": "# unsupported",
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(unsupported_editor.status_code, 400)
+
+        editor = self.client.get(
+            f"/applications/{application['id']}/draft/edit/shokumu-keirekisho.md"
+        )
+        self.assertEqual(editor.status_code, 200)
+        self.assertIn('id="root"', editor.text)
+        revised_work_history = (
+            documents["shokumu-keirekisho.md"]
+            .decode("utf-8")
+            .replace("Web Candidate", "Web Candidate Revised")
+        )
+        edited = self.client.post(
+            f"/applications/{application['id']}/draft/edit/shokumu-keirekisho.md",
+            data={
+                "csrf_token": token,
+                "expected_revision": "1",
                 "label": "Browser feedback",
-                "content": revised_resume,
+                "content": revised_work_history,
             },
             follow_redirects=False,
         )
@@ -711,7 +710,6 @@ Phone: 090-0000-0000 · Email: web@example.invalid
             data={
                 "csrf_token": token,
                 "expected_revision": "2",
-                "purpose": "other",
                 "role": "deliverable",
                 "origin": "external_export",
             },
@@ -721,11 +719,44 @@ Phone: 090-0000-0000 · Email: web@example.invalid
             follow_redirects=False,
         )
         self.assertEqual(uploaded_final.status_code, 303)
+        uploaded_entry = next(
+            item
+            for item in self.workspace.show_draft(application["id"])["files"]
+            if item["path"] == "deliverables/application.pdf"
+        )
+        self.assertEqual(uploaded_entry["purpose"], "shokumu_keirekisho")
+        draft_pdf = self.client.get(
+            f"/applications/{application['id']}/draft/files/deliverables/application.pdf"
+        )
+        self.assertEqual(draft_pdf.status_code, 200)
+        self.assertEqual(draft_pdf.headers["content-type"], "application/pdf")
+        self.assertTrue(draft_pdf.headers["content-disposition"].startswith("inline;"))
+        uploaded_rirekisho = self.client.post(
+            f"/applications/{application['id']}/materials/upload-deliverable",
+            data={
+                "csrf_token": token,
+                "expected_revision": "3",
+                "purpose": "rirekisho",
+                "role": "deliverable",
+                "origin": "user_uploaded",
+            },
+            files={
+                "file": ("rirekisho.pdf", b"%PDF-1.4 user-maintained", "application/pdf")
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(uploaded_rirekisho.status_code, 303)
+        uploaded_rirekisho_entry = next(
+            item
+            for item in self.workspace.show_draft(application["id"])["files"]
+            if item["path"] == "deliverables/rirekisho.pdf"
+        )
+        self.assertEqual(uploaded_rirekisho_entry["purpose"], "rirekisho")
         packaged = self.client.post(
             f"/applications/{application['id']}/materials/package",
             data={
                 "csrf_token": token,
-                "expected_revision": "3",
+                "expected_revision": "4",
                 "label": "Browser package",
             },
             follow_redirects=False,

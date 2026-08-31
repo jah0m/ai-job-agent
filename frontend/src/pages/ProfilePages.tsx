@@ -234,7 +234,7 @@ export function ProfilePage() {
             </div>
             <div>
               <h2>资料完整度</h2>
-              <p>完整资料有助于生成更准确的履歴書。</p>
+              <p>完整资料有助于生成更准确的职位定制职务经历书。</p>
             </div>
             <ul>
               {data.section_status.map((item) => (

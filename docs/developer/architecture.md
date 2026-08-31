@@ -48,8 +48,9 @@ Tracked: Skills, code, schemas, blank templates, tests, documentation, and
 licenses.
 
 Private and ignored: candidate facts, contact details, preferences, job
-postings, evaluations, generated resumes, interview notes, outcomes, exports,
-the SQLite database, and the content-addressed object store.
+postings, evaluations, generated job-specific 職務経歴書, user-uploaded
+fixed-format 履歴書 PDF/DOCX, interview notes, outcomes, exports, the SQLite
+database, and the content-addressed object store.
 
 ## Safety properties
 

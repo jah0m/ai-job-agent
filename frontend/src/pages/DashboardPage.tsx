@@ -784,7 +784,7 @@ function JobDrawer({
           ) : (
             <>
               <p>
-                还没有申请记录。创建后可以在申请Kanban准备履歴書、职务经历书和最终
+                还没有申请记录。创建后可以在申请Kanban准备职位定制的职务经历书和最终
                 PDF / DOCX。
               </p>
               <Button disabled={creating} onClick={createApplication}>

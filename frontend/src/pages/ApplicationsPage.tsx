@@ -116,8 +116,7 @@ function ApplicationInspector({
   const draftPaths = new Set(
     detail?.draft.files.map((file) => file.path) ?? [],
   );
-  const hasDocuments =
-    draftPaths.has("rirekisho.md") && draftPaths.has("shokumu-keirekisho.md");
+  const hasDocuments = draftPaths.has("shokumu-keirekisho.md");
   const hasDeliverables = Boolean(detail?.draft.deliverable_files.length);
   const hasPackage = Boolean(detail?.application.packages.length);
   const hasSubmission = Boolean(detail?.application.submissions.length);
@@ -175,7 +174,7 @@ function ApplicationInspector({
         </div>
       </div>
       <ul className="inspector-completion-list" aria-label="申请准备状态">
-        <CompletionState label="申请文书" complete={hasDocuments} />
+        <CompletionState label="職務経歴書" complete={hasDocuments} />
         <CompletionState label="实际投递文件" complete={hasDeliverables} />
         <CompletionState label="材料包" complete={hasPackage} />
         <CompletionState label="投递记录" complete={hasSubmission} />

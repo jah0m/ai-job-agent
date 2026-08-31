@@ -20,7 +20,7 @@ export function buildJobRefreshPrompt(job: Pick<Job, "id" | "url">): string {
 }
 
 export function buildApplicationPromptFallback(applicationId: string): string {
-  return `请使用 job-search skill 生成職務経歴書、履歴書：${applicationId}`;
+  return `请使用 job-search skill 只生成职位定制的職務経歴書（shokumu-keirekisho.md）：${applicationId}`;
 }
 
 export function buildApplicationDiscussionPrompt(
@@ -30,5 +30,5 @@ export function buildApplicationDiscussionPrompt(
 
 申请 ID：${applicationId}
 
-请围绕岗位匹配、履历书与职务经历书的重点、可能被问到的问题和下一步行动提出问题与建议。只能基于已知事实讨论，不要编造经历、数字、职级、日期或申请进展。`;
+请围绕岗位匹配、職務経歴書的重点、可能被问到的问题和下一步行动提出问题与建议。只能基于已知事实讨论，不要编造经历、数字、职级、日期或申请进展。`;
 }

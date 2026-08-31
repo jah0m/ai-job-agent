@@ -57,22 +57,19 @@ class StorageV2AcceptanceTests(unittest.TestCase):
     def _application_with_documents(self) -> tuple[dict, dict]:
         application = self.workspace.create_application(company="Example KK", role="Engineer")
         documents = {
-            "rirekisho.md": (
-                b"# \xe5\xb1\xa5\xe6\xad\xb4\xe6\x9b\xb8\n\n"
-                b"## \xe5\x9f\xba\xe6\x9c\xac\xe6\x83\x85\xe5\xa0\xb1\n\nCandidate\n\n"
-                b"## \xe5\xad\xa6\xe6\xad\xb4\xe3\x83\xbb\xe8\x81\xb7\xe6\xad\xb4\n\nHistory\n\n"
-                b"## \xe5\x85\x8d\xe8\xa8\xb1\xe3\x83\xbb\xe8\xb3\x87\xe6\xa0\xbc\n\nNone\n\n"
-                b"## \xe5\xbf\x97\xe6\x9c\x9b\xe5\x8b\x95\xe6\xa9\x9f\xe3\x83\xbb\xe8\x87\xaa\xe5\xb7\xb1PR\n\nReliable.\n\n"
-                b"## \xe6\x9c\xac\xe4\xba\xba\xe5\xb8\x8c\xe6\x9c\x9b\xe6\xac\x84\n\nStandard.\n"
-            ),
             "shokumu-keirekisho.md": (
                 b"# \xe8\x81\xb7\xe5\x8b\x99\xe7\xb5\x8c\xe6\xad\xb4\xe6\x9b\xb8\n\n"
+                b"**Candidate**\n\nPhone: 090-0000-0000 \xc2\xb7 Email: candidate@example.invalid\n\n"
                 b"## \xe8\x81\xb7\xe5\x8b\x99\xe8\xa6\x81\xe7\xb4\x84\n\nEngineer.\n\n"
                 b"## \xe6\xb4\xbb\xe3\x81\x8b\xe3\x81\x9b\xe3\x82\x8b\xe7\xb5\x8c\xe9\xa8\x93\xe3\x83\xbb\xe7\x9f\xa5\xe8\xad\x98"
                 b"\xe3\x83\xbb\xe6\x8a\x80\xe8\xa1\x93\n\n"
                 b"Python\n\n"
                 b"## \xe3\x83\x86\xe3\x82\xaf\xe3\x83\x8b\xe3\x82\xab\xe3\x83\xab\xe3\x82\xb9\xe3\x82\xad\xe3\x83\xab\n\nPython\n\n"
-                b"## \xe8\x81\xb7\xe5\x8b\x99\xe7\xb5\x8c\xe6\xad\xb4\n\nExperience\n\n"
+                b"## \xe8\x81\xb7\xe5\x8b\x99\xe7\xb5\x8c\xe6\xad\xb4\n\n"
+                b"### 2022\xe5\xb9\xb4 \xe4\xbc\x9a\xe7\xa4\xbe\n\n"
+                b"- **\xe4\xba\x8b\xe6\xa5\xad\xe5\x86\x85\xe5\xae\xb9\xef\xbc\x9a** Software\n"
+                b"- **\xe9\x9b\x87\xe7\x94\xa8\xe5\xbd\xa2\xe6\x85\x8b\xef\xbc\x9a** Full-time\n\n"
+                b"#### Project\n\n- **\xe6\x8b\x85\xe5\xbd\x93\xef\xbc\x9a** Delivery\n\n"
                 b"## \xe8\xb3\x87\xe6\xa0\xbc\n\nNone\n\n## \xe8\x87\xaa\xe5\xb7\xb1PR\n\nReliable.\n"
             ),
         }
@@ -167,9 +164,9 @@ class StorageV2AcceptanceTests(unittest.TestCase):
         pdf = b"%PDF-1.4\nobject data\n%%EOF"
         draft = self.workspace.save_deliverable_file(
             application["id"],
-            filename="rirekisho.pdf",
+            filename="職務経歴書.pdf",
             payload=pdf,
-            purpose="rirekisho",
+            purpose="shokumu_keirekisho",
             expected_revision=draft["revision"],
         )
         package = self.workspace.lock_current_materials(
@@ -178,7 +175,7 @@ class StorageV2AcceptanceTests(unittest.TestCase):
         submission = self.workspace.submit(
             application["id"],
             package_id=package["package_id"],
-            selected_paths=["deliverables/rirekisho.pdf"],
+            selected_paths=["deliverables/職務経歴書.pdf"],
             evidence_level="exact_files",
         )
         package_file = next(item for item in package["files"] if item["path"].endswith(".pdf"))
@@ -199,13 +196,13 @@ class StorageV2AcceptanceTests(unittest.TestCase):
         application, draft = self._application_with_documents()
         self.workspace.save_draft(
             application["id"],
-            documents={"rirekisho.md": b"# \xe5\xb1\xa5\xe6\xad\xb4\xe6\x9b\xb8\nupdated"},
+            documents={"shokumu-keirekisho.md": b"# \xe8\x81\xb7\xe5\x8b\x99\xe7\xb5\x8c\xe6\xad\xb4\xe6\x9b\xb8\nupdated"},
             expected_revision=draft["revision"],
         )
         with self.assertRaisesRegex(WorkspaceError, "revision conflict"):
             self.workspace.save_draft(
                 application["id"],
-                documents={"rirekisho.md": b"# \xe5\xb1\xa5\xe6\xad\xb4\xe6\x9b\xb8\nstale"},
+                documents={"shokumu-keirekisho.md": b"# \xe8\x81\xb7\xe5\x8b\x99\xe7\xb5\x8c\xe6\xad\xb4\xe6\x9b\xb8\nstale"},
                 expected_revision=draft["revision"],
             )
 

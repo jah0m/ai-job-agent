@@ -37,7 +37,7 @@ class PdfVerificationTests(unittest.TestCase):
             "ignored.pdf",
             expected_pages=2,
             min_characters=100,
-            required_text=("履歴書",),
+            required_text=("職務経歴書",),
         )
 
         self.assertFalse(result["ok"])

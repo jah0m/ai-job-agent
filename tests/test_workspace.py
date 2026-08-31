@@ -36,35 +36,7 @@ class WorkspaceTests(unittest.TestCase):
             job_url="https://example.invalid/jobs/1",
         )
 
-    def valid_documents(self, *, resume_suffix: str = "") -> dict[str, bytes]:
-        resume = f"""# 履歴書
-
-作成日：2026年08月27日
-
-## 基本情報
-
-- 氏名：Example Candidate{resume_suffix}
-- 連絡先：candidate@example.invalid
-- 居住地：Tokyo
-
-## 学歴・職歴
-
-| 年月 | 内容 |
-| --- | --- |
-| 2022年 | Example University |
-
-## 免許・資格
-
-- なし
-
-## 志望動機・自己PR
-
-Reliable software engineer.
-
-## 本人希望欄
-
-貴社規定に従います。
-"""
+    def valid_documents(self, *, suffix: str = "") -> dict[str, bytes]:
         shokumu = """# 職務経歴書
 
 **Example Candidate
@@ -133,10 +105,7 @@ Phone: 090-0000-0000 · Email: candidate@example.invalid · [Profile](https://ex
 
 利用者の課題を起点に、保守性と使いやすさを両立したシステム開発を進めます。
 """
-        return {
-            "rirekisho.md": resume.encode("utf-8"),
-            "shokumu-keirekisho.md": shokumu.encode("utf-8"),
-        }
+        return {"shokumu-keirekisho.md": (shokumu + suffix).encode("utf-8")}
 
     def save_valid_draft(self, application_id: str, *, label: str = "AI draft"):
         return self.workspace.save_draft(
@@ -313,7 +282,7 @@ Phone: 090-0000-0000 · Email: candidate@example.invalid · [Profile](https://ex
 
         feedback = self.workspace.save_draft(
             application["id"],
-            documents=self.valid_documents(resume_suffix=" revised"),
+            documents=self.valid_documents(suffix=" revised"),
             label="Feedback revision",
             status="working",
             actor="ai",
@@ -371,6 +340,77 @@ Phone: 090-0000-0000 · Email: candidate@example.invalid · [Profile](https://ex
             self.workspace.delete_package(application["id"], package_id=package["package_id"])
         self.assertTrue(self.workspace.audit()["ok"])
 
+    def test_only_job_history_markdown_is_required_and_supported(self) -> None:
+        application = self.create_application()
+        empty = self.workspace.show_draft(application["id"])
+        self.assertEqual(empty["validation"]["missing"], ["shokumu-keirekisho.md"])
+
+        saved = self.save_valid_draft(application["id"])
+        self.assertTrue(saved["validation"]["format_valid"])
+        self.assertTrue(saved["validation"]["ready"])
+        self.assertEqual(
+            {entry["path"] for entry in saved["files"]}, {"shokumu-keirekisho.md"}
+        )
+        with self.assertRaisesRegex(WorkspaceError, "Only application Markdown"):
+            self.workspace.save_draft(
+                application["id"],
+                documents={"other-application.md": b"# unsupported"},
+                status="working",
+            )
+        with self.assertRaisesRegex(WorkspaceError, "Only application Markdown"):
+            self.workspace.save_draft(
+                application["id"],
+                documents={"rirekisho.md": b"# unsupported"},
+                status="working",
+            )
+        source_directory = Path(self.temporary.name) / "draft-source"
+        source_directory.mkdir()
+        (source_directory / "other-application.md").write_text(
+            "# unsupported", encoding="utf-8"
+        )
+        with self.assertRaisesRegex(WorkspaceError, "Only application Markdown"):
+            self.workspace.save_draft(
+                application["id"], source_directory=source_directory, status="working"
+            )
+
+    def test_user_uploaded_rirekisho_pdf_and_docx_keep_purpose(self) -> None:
+        application = self.create_application()
+        draft = self.save_valid_draft(application["id"])
+        for filename, payload in (
+            ("user-maintained-rirekisho.pdf", b"%PDF-1.4 user-maintained"),
+            ("user-maintained-rirekisho.docx", b"PK user-maintained"),
+        ):
+            draft = self.workspace.save_deliverable_file(
+                application["id"],
+                filename=filename,
+                payload=payload,
+                purpose="rirekisho",
+                expected_revision=draft["revision"],
+            )
+
+        files = {
+            item["path"]: item for item in self.workspace.show_draft(application["id"])["files"]
+        }
+        self.assertEqual(files["deliverables/user-maintained-rirekisho.pdf"]["purpose"], "rirekisho")
+        self.assertEqual(files["deliverables/user-maintained-rirekisho.docx"]["purpose"], "rirekisho")
+
+    def test_uploaded_rirekisho_filenames_are_auto_classified(self) -> None:
+        application = self.create_application()
+        source_directory = Path(self.temporary.name) / "uploaded-materials"
+        source_directory.mkdir()
+        (source_directory / "shokumu-keirekisho.md").write_bytes(
+            self.valid_documents()["shokumu-keirekisho.md"]
+        )
+        (source_directory / "rirekisho.pdf").write_bytes(b"%PDF-1.4 user-maintained")
+        (source_directory / "履歴書.docx").write_bytes(b"PK user-maintained")
+
+        saved = self.workspace.save_draft(
+            application["id"], source_directory=source_directory, status="working"
+        )
+        files = {item["path"]: item for item in saved["files"]}
+        self.assertEqual(files["rirekisho.pdf"]["purpose"], "rirekisho")
+        self.assertEqual(files["履歴書.docx"]["purpose"], "rirekisho")
+
     def test_content_gate_and_restore_from_package(self) -> None:
         application = self.create_application()
         invalid = self.valid_documents()
@@ -402,7 +442,11 @@ Phone: 090-0000-0000 · Email: candidate@example.invalid · [Profile](https://ex
         self.assertEqual(cloned["base_package_id"], first_package["package_id"])
         changed = self.workspace.save_draft(
             application["id"],
-            documents={"rirekisho.md": self.valid_documents(resume_suffix=" v2")["rirekisho.md"]},
+            documents={
+                "shokumu-keirekisho.md": self.valid_documents(suffix=" v2")[
+                    "shokumu-keirekisho.md"
+                ]
+            },
             status="working",
             actor="web",
             expected_revision=cloned["revision"],
@@ -445,15 +489,15 @@ Phone: 090-0000-0000 · Email: candidate@example.invalid · [Profile](https://ex
         draft = self.save_valid_draft(application["id"])
         current = self.workspace.save_deliverable_file(
             application["id"],
-            filename="履歴書.pdf",
+            filename="職務経歴書.pdf",
             payload=b"%PDF-1.4 exact file",
-            purpose="rirekisho",
+            purpose="shokumu_keirekisho",
             expected_revision=draft["revision"],
         )
 
         submission = self.workspace.submit(
             application["id"],
-            selected_paths=["deliverables/履歴書.pdf"],
+            selected_paths=["deliverables/職務経歴書.pdf"],
             evidence_level="exact_files",
             channel="company_portal",
             expected_revision=current["revision"],
@@ -463,7 +507,7 @@ Phone: 090-0000-0000 · Email: candidate@example.invalid · [Profile](https://ex
         self.assertEqual(len(self.workspace.list_packages(application["id"])), 1)
         self.assertEqual(
             [item["path"] for item in submission["files"]],
-            ["deliverables/履歴書.pdf"],
+            ["deliverables/職務経歴書.pdf"],
         )
         with self.assertRaisesRegex(WorkspaceError, "permanently locked"):
             self.workspace.delete_package(application["id"], package_id=submission["package_id"])
@@ -501,7 +545,7 @@ Phone: 090-0000-0000 · Email: candidate@example.invalid · [Profile](https://ex
         application = self.create_application()
         package = self.package_valid_materials(application["id"])
         package_file = self.workspace.package_file_path(
-            application["id"], package["package_id"], "rirekisho.md"
+            application["id"], package["package_id"], "shokumu-keirekisho.md"
         )
         package_file.write_text("tampered", encoding="utf-8")
 

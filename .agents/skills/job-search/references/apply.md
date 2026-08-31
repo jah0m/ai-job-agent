@@ -1,9 +1,11 @@
 # Prepare an application
 
 Read the candidate profile, preferences, archived posting, and latest evaluation.
-Use `templates/ja/rirekisho.md` and `templates/ja/shokumu-keirekisho.md` as
-structural starting points. Produce both documents unless the employer or user
-requests a different set.
+Use `templates/ja/shokumu-keirekisho.md` as the structural starting point.
+Produce only the job-specific `shokumu-keirekisho.md` application Markdown.
+Do not generate or edit a 履歴書 Markdown file. If the user maintains a
+fixed-format 履歴書, preserve it only as their uploaded PDF/DOCX deliverable
+and classify that upload with purpose `rirekisho`.
 
 ## Writing rules
 
@@ -11,7 +13,6 @@ requests a different set.
 - Do not add a generation date, creation date, application ID, internal tracking field, or other workflow metadata to the documents unless the user or the selected template explicitly requires it; keep workflow metadata in the private application state or manifest.
 - Use Japanese hiring terminology natural for a mid-career IT role.
 - Make the 職務経歴書 achievement-oriented and technically specific.
-- Keep the 履歴書 concise and internally consistent with the detailed history.
 - Preserve exact dates, employer names, titles, metrics, certifications, and
   language levels from verified facts.
 - Mark unresolved placeholders conspicuously and do not submit while they remain.
@@ -54,25 +55,27 @@ materials as ready. Do not record an exact-file submission while the basic
 validation has errors or unresolved `[要確認]` placeholders remain.
 
 For every PDF, visually inspect the rendered pages and run the deterministic
-text-layer gate. Supply literal contact details and important Japanese headings
-through repeated `--contains` arguments so an icon-only or broken text layer
-cannot pass:
+text-layer gate. Supply literal contact details and the important Japanese
+heading through repeated `--contains` arguments so an icon-only or broken text
+layer cannot pass:
+
+This check also applies to a user-maintained 履歴書 PDF when it is supplied as
+an actual deliverable. The user-uploaded file is retained for package and
+submission evidence; it is not generated or edited by Codex.
 
 ```powershell
-python scripts/job_search.py document verify-pdf <rirekisho.pdf> --pages 2 --min-chars 200 --contains "履歴書" --contains "candidate@example.com"
 python scripts/job_search.py document verify-pdf <shokumu-keirekisho.pdf> --min-chars 500 --contains "職務経歴書" --contains "candidate@example.com"
 ```
 
-Use the page count required by the employer and chosen format; do not assume all
-Japanese 履歴書 or 職務経歴書 must have the same length. The CLI checks page
-count, extractable text, required literals, CID markers, and replacement
+Use the page count required by the employer and chosen format. The CLI checks
+page count, extractable text, required literals, CID markers, and replacement
 characters; it does not replace visual inspection.
 
 Only after the user confirms that the exact deliverables were actually sent to
 the employer, record the submission and identify the files that were sent:
 
 ```powershell
-python scripts/job_search.py submit <application-id> --evidence exact_files --file <rirekisho.pdf> --file <shokumu-keirekisho.pdf> --channel <channel> --expected-revision <revision>
+python scripts/job_search.py submit <application-id> --evidence exact_files --file <shokumu-keirekisho.pdf> --channel <channel> --expected-revision <revision>
 python scripts/job_search.py audit
 ```
 

@@ -49,6 +49,11 @@ Original postings, Markdown sources, PDF/DOCX deliverables, and other artifacts
 are stored once under `objects/sha256/`. The database records their SHA-256,
 size, media type, and logical references.
 
+The generated application Markdown is limited to the job-specific
+`shokumu-keirekisho.md`. A user-maintained fixed-format 履歴書 may still be
+stored as an uploaded PDF/DOCX deliverable with purpose `rirekisho`; it is not
+an editable or generated application document.
+
 The write protocol is deliberately asymmetric:
 
 1. write and fsync a temporary object;

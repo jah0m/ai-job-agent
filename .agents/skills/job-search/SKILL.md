@@ -1,6 +1,6 @@
 ---
 name: job-search
-description: Manage a private Japanese job search with Codex. Use when setting up a candidate profile, evaluating or tracking a job, drafting 履歴書 or 職務経歴書, preparing an application or interview, or recording an outcome. Do not use for generic career advice that does not involve this workspace.
+description: Manage a private Japanese job search with Codex. Use when setting up a candidate profile, evaluating or tracking a job, drafting a job-specific 職務経歴書, preparing an application or interview, or recording an outcome. Do not use for generic career advice that does not involve this workspace.
 ---
 
 # Job Search
@@ -9,7 +9,12 @@ Use tracked files for workflow and templates only. All personal facts, job
 postings, evaluations, generated documents, interview notes, and outcomes must
 remain under `.job-search/`.
 
-Do not add document metadata that the user or the selected template did not request. In particular, do not insert a generation date, creation date, application ID, internal tracking field, or similar workflow metadata into a 履歴書・職務経歴書. Keep such metadata in the private application state or manifest instead.
+Do not add document metadata that the user or the selected template did not request. In particular, do not insert a generation date, creation date, application ID, internal tracking field, or similar workflow metadata into a 職務経歴書. Keep such metadata in the private application state or manifest instead.
+
+Codex generates only the job-specific 職務経歴書 Markdown. If the user has a
+self-maintained fixed-format 履歴書, accept it only as a user-uploaded PDF or
+DOCX deliverable for material packages or submission records; never generate or
+edit that document as Markdown or through the online editor.
 
 ## Default language
 

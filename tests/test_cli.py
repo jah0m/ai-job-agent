@@ -42,31 +42,6 @@ class CliEndToEndTests(unittest.TestCase):
 
     def valid_documents(self) -> dict[str, str]:
         return {
-            "rirekisho.md": """# 履歴書
-
-## 基本情報
-
-- 氏名：CLI Candidate
-- 連絡先：cli@example.invalid
-
-## 学歴・職歴
-
-| 年月 | 内容 |
-| --- | --- |
-| 2022年 | Example University |
-
-## 免許・資格
-
-- なし
-
-## 志望動機・自己PR
-
-Reliable engineer.
-
-## 本人希望欄
-
-貴社規定に従います。
-""",
             "shokumu-keirekisho.md": """# 職務経歴書
 
 **CLI Candidate

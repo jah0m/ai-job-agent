@@ -40,10 +40,7 @@ import type {
   ValidationResult,
 } from "../types";
 
-const documentNames = [
-  { path: "rirekisho.md", title: "履歴書" },
-  { path: "shokumu-keirekisho.md", title: "职务经历书" },
-];
+const documentNames = [{ path: "shokumu-keirekisho.md", title: "职务经历书" }];
 
 function validationItems(validation?: ValidationResult) {
   if (!validation)
@@ -95,7 +92,10 @@ function MaterialRow({
     ? packageFileUrl(applicationId, packageId, file.path)
     : downloadDraftUrl(applicationId, file.path);
   const isPdf = file.path.toLowerCase().endsWith(".pdf");
-  const preview = file.path.endsWith(".md")
+  const isMarkdown = file.path.endsWith(".md");
+  const isApplicationMarkdown = file.path === "shokumu-keirekisho.md";
+  const canPreviewMarkdown = packageId ? isMarkdown : isApplicationMarkdown;
+  const preview = canPreviewMarkdown
     ? previewUrl(applicationId, file.path, packageId)
     : download;
   return (
@@ -112,7 +112,7 @@ function MaterialRow({
         </span>
       </div>
       <div className="row-actions">
-        {file.path.endsWith(".md") ? (
+        {canPreviewMarkdown ? (
           <Link
             aria-label={`预览 ${fileName(file.path)}`}
             className="icon-action"
@@ -141,7 +141,7 @@ function MaterialRow({
             <FileDown size={15} />
           </a>
         )}
-        {!packageId && file.path.endsWith(".md") ? (
+        {!packageId && isApplicationMarkdown ? (
           <Link
             aria-label={`编辑 ${fileName(file.path)}`}
             className="icon-action"
@@ -175,7 +175,7 @@ function ValidationBanner({ draft }: { draft: Draft }) {
         role="status"
       >
         <Check size={16} />
-        <span>自动检查通过：两份 Markdown 已通过基础检查。</span>
+        <span>自动检查通过：職務経歴書 Markdown 已通过基础检查。</span>
       </div>
     );
   if (
@@ -186,7 +186,7 @@ function ValidationBanner({ draft }: { draft: Draft }) {
     return (
       <div aria-live="polite" className="validation-banner" role="status">
         <FileText size={16} />
-        <span>自动检查：尚未保存两份申请材料。</span>
+        <span>自动检查：尚未保存職務経歴書。</span>
       </div>
     );
   return (
@@ -478,7 +478,8 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [statusNote, setStatusNote] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("");
-  const [deliverablePurpose, setDeliverablePurpose] = useState("rirekisho");
+  const [deliverablePurpose, setDeliverablePurpose] =
+    useState("shokumu_keirekisho");
   const [deliverableFile, setDeliverableFile] = useState<File | null>(null);
   const [packageLabel, setPackageLabel] = useState("");
   const [openSection, setOpenSection] = useState<string | null>(null);
@@ -761,8 +762,8 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
                 <div className="step-content">
                   <div className="step-heading">
                     <div>
-                      <h3>创建履歴書与職務経歴書</h3>
-                      <p>维护内容源，或让 AI 根据职位和履历起草。</p>
+                      <h3>创建职位定制职务经历书</h3>
+                      <p>维护内容源，或让 AI 根据职位和候选人资料起草。</p>
                     </div>
                     <span className="step-state">
                       {preparationStepState(0, hasSourceDocuments)}
@@ -828,7 +829,7 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
                       <div className="source-start-copy">
                         <span>快捷方式</span>
                         <strong>让 AI 起草</strong>
-                        <p>让 Codex 根据职位和履历生成初稿。</p>
+                        <p>让 Codex 根据职位和候选人资料生成职务经历书初稿。</p>
                       </div>
                       <div className="source-start-actions">
                         <AiPromptButton
@@ -862,7 +863,10 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
                   <div className="step-heading">
                     <div>
                       <h3>上传实际投递文件</h3>
-                      <p>上传你在外部排版后实际发送的 PDF 或 DOCX。</p>
+                      <p>
+                        上传你为職務経歴書在外部排版，或自行维护的履歴書实际发送的
+                        PDF 或 DOCX。系统不会生成或在线编辑履歴書。
+                      </p>
                     </div>
                     <span className="step-state">
                       {preparationStepState(1, hasDeliverables)}
@@ -886,16 +890,18 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
                     <form className="upload-form" onSubmit={uploadDeliverable}>
                       <div className="form-grid">
                         <label className="field-label">
-                          <span>材料用途</span>
+                          <span>材料用途（默认：职务经历书）</span>
                           <select
                             onChange={(event) =>
                               setDeliverablePurpose(event.target.value)
                             }
                             value={deliverablePurpose}
                           >
-                            <option value="rirekisho">履歴書</option>
                             <option value="shokumu_keirekisho">
                               职务经历书
+                            </option>
+                            <option value="rirekisho">
+                              履歴書（用户自备）
                             </option>
                             <option value="employer_form">公司指定表格</option>
                             <option value="portfolio">作品集</option>
@@ -935,7 +941,7 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
                       <div>
                         <strong>在外部调整格式</strong>
                         <p>
-                          下载 Markdown 后，可在 Google Docs、Word
+                          下载職務経歴書 Markdown 后，可在 Google Docs、Word
                           或公司指定模板中调整内容与版式。完成后，将实际投递的
                           PDF 或 DOCX 上传到当前材料。
                         </p>

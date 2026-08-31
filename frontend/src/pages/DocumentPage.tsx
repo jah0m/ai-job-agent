@@ -20,6 +20,8 @@ import {
 import { formatDate } from "../format";
 import type { DocumentPreview, MarkdownBlock } from "../types";
 
+const SHOKUMU_DOCUMENT_PATH = "shokumu-keirekisho.md";
+
 function encodedPath(path: string) {
   return path.split("/").map(encodeURIComponent).join("/");
 }
@@ -85,6 +87,11 @@ export function DocumentPreviewPage() {
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     if (!applicationId || !wildcard) return;
+    if (!packageId && wildcard !== SHOKUMU_DOCUMENT_PATH) {
+      setData(null);
+      setError("在线申请文档仅支持 shokumu-keirekisho.md");
+      return;
+    }
     setData(null);
     setError(null);
     void (
@@ -121,7 +128,7 @@ export function DocumentPreviewPage() {
         <span>正在读取文档…</span>
       </div>
     );
-  const isWorkHistory = data.relative_path.endsWith("shokumu-keirekisho.md");
+  const isWorkHistory = data.relative_path === SHOKUMU_DOCUMENT_PATH;
   return (
     <div className="document-page">
       <PageIntro
@@ -135,7 +142,7 @@ export function DocumentPreviewPage() {
               href={documentDownload(data, packageId)}
             >
               <Download size={15} />
-              下载 Markdown
+              下载职务经历书 Markdown
             </a>
             {data.is_draft ? (
               <Link
@@ -143,7 +150,7 @@ export function DocumentPreviewPage() {
                 to={`/applications/${encodeURIComponent(data.application.id)}/draft/edit/${encodedPath(data.relative_path)}`}
               >
                 <Pencil size={15} />
-                编辑工作草稿
+                编辑职务经历书草稿
               </Link>
             ) : null}
           </>
@@ -203,6 +210,11 @@ export function DocumentEditPage() {
   const [saving, setSaving] = useState(false);
   useEffect(() => {
     if (!applicationId || !wildcard) return;
+    if (wildcard !== SHOKUMU_DOCUMENT_PATH) {
+      setData(null);
+      setError("在线编辑仅支持 shokumu-keirekisho.md");
+      return;
+    }
     setData(null);
     setError(null);
     void api

@@ -76,7 +76,8 @@ See the [first-use guide](docs/user/first-use-guide.md) for the complete workflo
 - **Search multiple public sources**, including Green, Geekly, LinkedIn, TokyoDev, LAPRAS, and company pages hosted on HERP or HRMOS.
 - **Evaluate job fit** using verified facts and preferences, with evidence-backed strengths, categorized gaps, hard constraints, and open questions.
 - **Track the full pipeline** across saved jobs, skipped roles, material preparation, interviews, offers, and closed applications.
-- **Prepare Japanese application materials** with job-specific 履歴書 and 職務経歴書 drafts whose revisions remain traceable.
+- **Prepare a job-specific Japanese 職務経歴書** whose draft revisions remain traceable.
+- **Retain a user-maintained fixed-format 履歴書** by uploading its PDF/DOCX; Codex does not generate or edit that document.
 - **Preserve submission evidence** by uploading final PDF/DOCX files, recording the real channel and time, and automatically creating an immutable material package.
 - **Prepare for interviews and record outcomes** using the archived posting, candidate evidence, and submitted materials.
 
@@ -86,8 +87,8 @@ See the [first-use guide](docs/user/first-use-guide.md) for the complete workflo
 2. Ask Codex to search suitable portals, or paste a public job URL to import and save it directly.
 3. Review the original posting and persisted AI fit analysis.
 4. Create an application record for a role worth pursuing.
-5. Ask Codex to prepare 履歴書 and 職務経歴書 in the mutable current materials.
-6. Finish layout and export in Word, Google Docs, an employer template, or Markdown Resume Studio.
+5. Ask Codex to prepare the job-specific 職務経歴書 in the mutable current materials.
+6. Finish layout and export in Word, Google Docs, an employer template, or Markdown Resume Studio; upload any self-maintained fixed-format 履歴書 PDF/DOCX as a user-provided deliverable.
 7. Submit through the employer site, email, or recruiting agent.
 8. Return to AI Job Agent and record the files and metadata that were actually used.
 
@@ -127,7 +128,8 @@ Application materials have explicit lifecycle boundaries:
 - Portal workflows do not bypass authentication, CAPTCHAs, access controls, or rate limits.
 - The project does not automatically fill or submit external application forms.
 - Codex asks for confirmation before saving important profile information.
-- Japanese applications include both a 履歴書 and 職務経歴書 by default unless the role or user requires otherwise.
+- Japanese application preparation generates the job-specific 職務経歴書 only.
+- A user-maintained fixed-format 履歴書 may be uploaded as PDF/DOCX for package and submission evidence; it is never generated or edited by Codex.
 
 ## License
 

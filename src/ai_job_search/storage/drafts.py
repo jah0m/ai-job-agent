@@ -177,15 +177,33 @@ class DraftStorageMixin(StorageDatabase):
             source_root = Path(source_directory).expanduser().resolve()
             if not source_root.is_dir():
                 raise WorkspaceError(f"Artifact source is not a directory: {source_root}")
+            source_files: list[tuple[str, Path]] = []
             for path in source_root.rglob("*"):
                 if path.is_symlink():
                     raise WorkspaceError(f"Symbolic links are not allowed in artifacts: {path}")
                 if not path.is_file() or path.name == "manifest.json":
                     continue
                 relative = path.relative_to(source_root).as_posix()
+                if path.suffix.lower() == ".md" and relative not in REQUIRED_DOCUMENTS:
+                    raise WorkspaceError(
+                        f"Only application Markdown can be saved: {relative}"
+                    )
+                source_files.append((relative, path))
+            for relative, path in source_files:
                 entries[relative] = self._put_entry(
                     relative, source=path, metadata={"source_path": str(path)}
                 )
+
+        unsupported_markdown = sorted(
+            path
+            for path in entries
+            if Path(path).suffix.lower() == ".md" and path not in REQUIRED_DOCUMENTS
+        )
+        if unsupported_markdown:
+            raise WorkspaceError(
+                "Only application Markdown can be saved: "
+                + ", ".join(unsupported_markdown)
+            )
 
         for relative in remove_paths or ():
             if relative in REQUIRED_DOCUMENTS or not relative.startswith("deliverables/"):

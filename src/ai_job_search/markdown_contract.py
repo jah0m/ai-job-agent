@@ -4,8 +4,8 @@ import re
 from pathlib import Path
 from typing import Any
 
-TEMPLATE_REVISION = "md-resume-sample-v1"
-REQUIRED_DOCUMENTS = ("rirekisho.md", "shokumu-keirekisho.md")
+TEMPLATE_REVISION = "md-shokumu-sample-v2"
+REQUIRED_DOCUMENTS = ("shokumu-keirekisho.md",)
 # These headings describe the default template shown to Codex and users. They
 # are intentionally advisory: a user's preferred section names and order must
 # not make an otherwise usable Markdown document fail validation.
@@ -51,14 +51,6 @@ def _common_text_errors(content: str, *, name: str) -> list[str]:
     for marker in TRACEABILITY_MARKERS:
         if marker.casefold() in lowered:
             errors.append(f"{name} 不得包含内部追踪字段 {marker}")
-    return errors
-
-
-def _validate_rirekisho(content: str) -> list[str]:
-    errors = _common_text_errors(content, name="rirekisho.md")
-    first = next((line.strip() for line in content.splitlines() if line.strip()), "")
-    if first != "# 履歴書":
-        errors.append("rirekisho.md 首行必须是 # 履歴書")
     return errors
 
 
@@ -173,8 +165,6 @@ def validate_application_documents(directory: str | Path) -> dict[str, Any]:
         if "[要確認" in content or "[要确认" in content:
             placeholders.append(name)
 
-    if "rirekisho.md" in contents:
-        errors.extend(_validate_rirekisho(contents["rirekisho.md"]))
     if "shokumu-keirekisho.md" in contents:
         errors.extend(_validate_shokumu(contents["shokumu-keirekisho.md"]))
 

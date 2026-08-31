@@ -46,9 +46,13 @@ then use bullets to show the implemented workflow:
 - search supported job portals;
 - save jobs and analyze fit with evidence-backed strengths and gaps;
 - track applications and their status;
-- prepare revisioned current Japanese 履歴書 and 職務経歴書, with immutable
-  material packages when a snapshot is needed;
+- prepare a revisioned current, job-specific Japanese 職務経歴書, with
+  immutable material packages when a snapshot is needed;
 - prepare for interviews and record outcomes.
+
+Users may additionally upload a self-maintained fixed-format 履歴書 as a PDF
+or DOCX for package and submission evidence. It is user-provided material, not
+a document generated or edited by Codex.
 
 End with one or two concrete starter requests as bullets. For a new user,
 recommend starting AI Job Agent and then setting up their profile or importing an

@@ -295,7 +295,7 @@ def _application_ai_prompt(application: dict[str, Any]) -> str:
                 "2. Use only verified candidate facts and job evidence. Do not invent dates, employers, "
                 "responsibilities, metrics, qualifications, or motivation. Record unresolved items as questions."
             ),
-            "3. Prepare both `rirekisho.md` (Japanese resume) and `shokumu-keirekisho.md` (Japanese work history).",
+            "3. Prepare only the job-specific `shokumu-keirekisho.md` (Japanese work history). Do not create any other application Markdown files.",
             "",
             "Recommended format for `shokumu-keirekisho.md`:",
             (
@@ -321,17 +321,17 @@ def _application_ai_prompt(application: dict[str, Any]) -> str:
                 "unless the user explicitly prefers a consolidated section."
             ),
             (
-                "- Do not add YAML/front matter, code fences, HTML, JSON, or explanatory prose outside the resume. "
+                "- Do not add YAML/front matter, code fences, HTML, JSON, or explanatory prose outside the document. "
                 "Before saving the draft, check that the finished Markdown is internally consistent and follows the "
                 "user's chosen layout."
             ),
             (
                 "- Keep `application_id` and `source_job_id` in the private application state and evaluation only; "
-                "never insert traceability IDs into the rendered resume body."
+                "never insert traceability IDs into the rendered 職務経歴書 body."
             ),
             (
-                "- `rirekisho.md` may use the tracked Japanese resume template; only `shokumu-keirekisho.md` should "
-                "be supplied to Markdown Resume Studio for the PDF conversion."
+                "- Only `shokumu-keirekisho.md` is an application Markdown source. Use the tracked canonical template "
+                "as the default reference and supply this file to Markdown Resume Studio for optional external formatting."
             ),
             "",
             (
@@ -610,9 +610,9 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
 
     @app.get("/api/v1/applications/{application_id}/draft/preview/{relative_path:path}")
     def api_draft_preview(application_id: str, relative_path: str) -> dict[str, Any]:
-        if relative_path not in {"rirekisho.md", "shokumu-keirekisho.md"}:
+        if relative_path != "shokumu-keirekisho.md":
             raise HTTPException(
-                status_code=400, detail="Only application Markdown can be previewed"
+                status_code=400, detail="Only shokumu-keirekisho.md can be previewed"
             )
         try:
             application = workspace.show_application(application_id)
@@ -627,8 +627,7 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
             # does not exist yet.
             content = ""
         title = {
-            "rirekisho.md": "履歴書",
-            "shokumu-keirekisho.md": "職务经历书",
+            "shokumu-keirekisho.md": "职务经历书",
         }.get(relative_path, Path(relative_path).stem)
         return {
             "application": application,
@@ -659,7 +658,6 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
         if logical.suffix.lower() != ".md":
             raise HTTPException(status_code=400, detail="Only Markdown files can be previewed")
         title = {
-            "rirekisho.md": "履歴書",
             "shokumu-keirekisho.md": "职务经历书",
         }.get(logical.name, logical.stem)
         content = path.read_text(encoding="utf-8")
@@ -744,11 +742,11 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
             token = _value(values, "csrf_token")
             if not secrets.compare_digest(token, app.state.csrf_token):
                 raise HTTPException(status_code=403, detail="Invalid CSRF token")
+            unexpected_uploads = sorted(set(uploads) - {"shokumu_keirekisho"})
+            if unexpected_uploads:
+                raise WorkspaceError("Only shokumu-keirekisho.md can be uploaded")
             documents: dict[str, bytes] = {}
-            for field, canonical_name in (
-                ("rirekisho", "rirekisho.md"),
-                ("shokumu_keirekisho", "shokumu-keirekisho.md"),
-            ):
+            for field, canonical_name in (("shokumu_keirekisho", "shokumu-keirekisho.md"),):
                 upload = uploads.get(field)
                 if not upload:
                     continue
@@ -849,7 +847,7 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
                 application_id,
                 filename=filename,
                 payload=payload,
-                purpose=_value(values, "purpose", "other"),
+                purpose=_value(values, "purpose", "shokumu_keirekisho"),
                 role=_value(values, "role", "deliverable"),
                 origin=_value(values, "origin", "user_uploaded"),
                 source_path=_value(values, "source_path") or None,
@@ -884,8 +882,10 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
         request: Request,
     ) -> RedirectResponse:
         values = await form_values(request)
-        if relative_path not in {"rirekisho.md", "shokumu-keirekisho.md"}:
-            raise HTTPException(status_code=400, detail="Only application Markdown can be edited")
+        if relative_path != "shokumu-keirekisho.md":
+            raise HTTPException(
+                status_code=400, detail="Only shokumu-keirekisho.md can be edited"
+            )
         try:
             raw_revision = _value(values, "expected_revision")
             expected_revision = int(raw_revision) if raw_revision else None
@@ -934,11 +934,15 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
 
     @app.get("/applications/{application_id}/draft/files/{relative_path:path}")
     def download_draft_file(application_id: str, relative_path: str) -> FileResponse:
+        logical = Path(relative_path)
+        if logical.suffix.lower() == ".md" and relative_path != "shokumu-keirekisho.md":
+            raise HTTPException(
+                status_code=400, detail="Only shokumu-keirekisho.md can be downloaded"
+            )
         try:
             path = workspace.draft_file_path(application_id, relative_path)
         except WorkspaceError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
-        logical = Path(relative_path)
         if logical.suffix.lower() == ".pdf":
             return FileResponse(
                 path,

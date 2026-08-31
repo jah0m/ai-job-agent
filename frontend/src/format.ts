@@ -44,7 +44,7 @@ export function fileName(path: string): string {
 
 export function filePurpose(value?: string): string {
   const labels: Record<string, string> = {
-    rirekisho: "履歴书",
+    rirekisho: "履歴書（用户自备）",
     shokumu_keirekisho: "职务经历书",
     employer_form: "公司表格",
     portfolio: "作品集",
