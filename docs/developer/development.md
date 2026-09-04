@@ -82,6 +82,21 @@ preview servers and does not enable Uvicorn auto-reload.
 
 ## Frontend development
 
+With GNU Make installed and the Python and npm dependencies set up, run from
+the repository root:
+
+```powershell
+make dev
+```
+
+This starts the backend with auto-reload and the Vite frontend concurrently
+in the current terminal. Open `http://[::1]:5173`; the backend listens on
+`http://[::1]:8765`. Press Ctrl+C to stop both servers; on Windows, answer
+`Y` if npm asks `Terminate batch job (Y/N)?`. Plain `make` also
+defaults to `dev`. For separate terminals, use `make dev-backend` and
+`make dev-frontend` (or `python scripts/job_search_web.py` and
+`npm run dev:frontend` when Make is unavailable).
+
 The frontend uses Vite, React, TypeScript, plain CSS, Radix UI primitives, and
 Biome. `npm run dev:frontend` starts Vite on port 5173 and proxies API requests
 to the FastAPI service on port 8765. `npm run build:frontend` writes the
