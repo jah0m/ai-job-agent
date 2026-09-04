@@ -40,7 +40,7 @@ import type {
   ValidationResult,
 } from "../types";
 
-const documentNames = [{ path: "shokumu-keirekisho.md", title: "职务经历书" }];
+const documentNames = [{ path: "shokumu-keirekisho.md", title: "職務経歴書" }];
 
 function validationItems(validation?: ValidationResult) {
   if (!validation)
@@ -762,7 +762,7 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
                 <div className="step-content">
                   <div className="step-heading">
                     <div>
-                      <h3>创建职位定制职务经历书</h3>
+                      <h3>创建职位定制職務経歴書</h3>
                       <p>维护内容源，或让 AI 根据职位和候选人资料起草。</p>
                     </div>
                     <span className="step-state">
@@ -829,7 +829,7 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
                       <div className="source-start-copy">
                         <span>快捷方式</span>
                         <strong>让 AI 起草</strong>
-                        <p>让 Codex 根据职位和候选人资料生成职务经历书初稿。</p>
+                        <p>让 Codex 根据职位和候选人资料生成職務経歴書初稿。</p>
                       </div>
                       <div className="source-start-actions">
                         <AiPromptButton
@@ -890,7 +890,7 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
                     <form className="upload-form" onSubmit={uploadDeliverable}>
                       <div className="form-grid">
                         <label className="field-label">
-                          <span>材料用途（默认：职务经历书）</span>
+                          <span>材料用途（默认：職務経歴書）</span>
                           <select
                             onChange={(event) =>
                               setDeliverablePurpose(event.target.value)
@@ -898,7 +898,7 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
                             value={deliverablePurpose}
                           >
                             <option value="shokumu_keirekisho">
-                              职务经历书
+                              職務経歴書
                             </option>
                             <option value="rirekisho">
                               履歴書（用户自备）
@@ -946,7 +946,7 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
                           PDF 或 DOCX 上传到当前材料。
                         </p>
                         <p>
-                          制作职务经历书时，也可以使用{" "}
+                          制作職務経歴書时，也可以使用{" "}
                           <a
                             href="https://md-resume.jahom.dev/"
                             rel="noreferrer"

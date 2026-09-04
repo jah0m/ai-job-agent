@@ -142,7 +142,7 @@ export function DocumentPreviewPage() {
               href={documentDownload(data, packageId)}
             >
               <Download size={15} />
-              下载职务经历书 Markdown
+              下载職務経歴書 Markdown
             </a>
             {data.is_draft ? (
               <Link
@@ -150,7 +150,7 @@ export function DocumentPreviewPage() {
                 to={`/applications/${encodeURIComponent(data.application.id)}/draft/edit/${encodedPath(data.relative_path)}`}
               >
                 <Pencil size={15} />
-                编辑职务经历书草稿
+                编辑職務経歴書草稿
               </Link>
             ) : null}
           </>

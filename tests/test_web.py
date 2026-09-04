@@ -150,9 +150,7 @@ Phone: 090-0000-0000 · Email: web@example.invalid
         self.assertEqual(response.status_code, 200)
         self.assertIn('id="root"', response.text)
         self.assertNotIn("htmx", response.text.lower())
-        self.assertEqual(
-            self.client.get("/static/htmx-2.0.10.min.js").status_code, 404
-        )
+        self.assertEqual(self.client.get("/static/htmx-2.0.10.min.js").status_code, 404)
         self.assertEqual(self.client.get("/api/v1/does-not-exist").status_code, 404)
 
         jobs = self.client.get("/api/v1/jobs")
@@ -190,7 +188,9 @@ Phone: 090-0000-0000 · Email: web@example.invalid
             },
         )
         self.assertEqual(payload["selected_job"]["id"], job_id)
-        self.assertEqual(payload["selected_job"]["description"], "Build reliable services.")
+        self.assertEqual(
+            payload["selected_job"]["description"], "Build reliable services."
+        )
         self.assertEqual(payload["selected_job"]["tags"], ["Python", "AWS"])
         self.assertEqual(
             payload["selected_job"]["salary_detail"],
@@ -407,7 +407,9 @@ Phone: 090-0000-0000 · Email: web@example.invalid
         )
         self.assertEqual(duplicate.status_code, 400)
 
-    def test_empty_application_delete_route_requires_csrf_and_reopens_saved_job(self) -> None:
+    def test_empty_application_delete_route_requires_csrf_and_reopens_saved_job(
+        self,
+    ) -> None:
         job_id = self.workspace.list_jobs()[0]["id"]
         token = self.csrf_token()
         created = self.client.post(
@@ -510,7 +512,7 @@ Phone: 090-0000-0000 · Email: web@example.invalid
             f"/api/v1/applications/{application['id']}/draft/preview/shokumu-keirekisho.md"
         )
         self.assertEqual(draft_preview.status_code, 200)
-        self.assertEqual(draft_preview.json()["document_title"], "职务经历书")
+        self.assertEqual(draft_preview.json()["document_title"], "職務経歴書")
         self.assertIn("Web Candidate", draft_preview.json()["content"])
         draft_download = self.client.get(
             f"/applications/{application['id']}/draft/files/shokumu-keirekisho.md"
@@ -558,7 +560,9 @@ Phone: 090-0000-0000 · Email: web@example.invalid
         self.assertIn('id="root"', detail.text)
         catalog = self.client.get("/api/v1/packages")
         self.assertEqual(catalog.status_code, 200)
-        self.assertEqual(catalog.json()["items"][0]["package"]["label"], "AI draft from Codex")
+        self.assertEqual(
+            catalog.json()["items"][0]["package"]["label"], "AI draft from Codex"
+        )
         work_history = self.client.get(
             f"/applications/{application['id']}/packages/{packages[0]['id']}"
             "/files/shokumu-keirekisho.md"
@@ -607,9 +611,7 @@ Phone: 090-0000-0000 · Email: web@example.invalid
         detail = self.client.get("/api/v1/jobs", params={"selected": job_id})
         self.assertEqual(detail.status_code, 200)
         detail_payload = detail.json()["selected_job"]
-        self.assertEqual(
-            detail_payload["match_analysis"]["recommendation"], "pursue"
-        )
+        self.assertEqual(detail_payload["match_analysis"]["recommendation"], "pursue")
         self.assertTrue(
             any(
                 "Python service delivery" in strength
@@ -741,7 +743,11 @@ Phone: 090-0000-0000 · Email: web@example.invalid
                 "origin": "user_uploaded",
             },
             files={
-                "file": ("rirekisho.pdf", b"%PDF-1.4 user-maintained", "application/pdf")
+                "file": (
+                    "rirekisho.pdf",
+                    b"%PDF-1.4 user-maintained",
+                    "application/pdf",
+                )
             },
             follow_redirects=False,
         )
@@ -777,9 +783,7 @@ Phone: 090-0000-0000 · Email: web@example.invalid
         catalog = self.client.get("/packages")
         self.assertIn('id="root"', catalog.text)
         catalog_api = self.client.get("/api/v1/packages").json()
-        self.assertEqual(
-            catalog_api["items"][0]["package"]["label"], "Browser package"
-        )
+        self.assertEqual(catalog_api["items"][0]["package"]["label"], "Browser package")
 
         submitted = self.client.post(
             f"/applications/{application['id']}/submit",

@@ -95,7 +95,11 @@ def _salary(raw: Any) -> str:
             currency = str(value.get("currency") or "").upper()
             if currency == "JPY" and isinstance(minimum, int | float):
                 lower = f"¥{minimum / 1_000_000:g}M"
-                upper = f"¥{maximum / 1_000_000:g}M" if isinstance(maximum, int | float) else ""
+                upper = (
+                    f"¥{maximum / 1_000_000:g}M"
+                    if isinstance(maximum, int | float)
+                    else ""
+                )
                 return f"{lower}–{upper}" if upper else f"{lower}以上"
         for tag in _tags(raw):
             if "¥" in tag or "万円" in tag:
@@ -147,7 +151,9 @@ def _job_facts(raw: Any) -> dict[str, Any]:
     languages = raw.get("language_requirements")
     if isinstance(languages, list):
         normalized_languages = [
-            str(value).strip() for value in languages if isinstance(value, str) and value.strip()
+            str(value).strip()
+            for value in languages
+            if isinstance(value, str) and value.strip()
         ]
         if normalized_languages:
             facts["language_requirements"] = normalized_languages
@@ -164,7 +170,8 @@ def _job_remote(raw: Any) -> str:
     remote = work_style.get("remote")
     return (
         remote
-        if isinstance(remote, str) and remote in {"onsite", "hybrid", "remote", "unknown"}
+        if isinstance(remote, str)
+        and remote in {"onsite", "hybrid", "remote", "unknown"}
         else ""
     )
 
@@ -214,19 +221,26 @@ def _markdown_blocks(content: str) -> list[dict[str, Any]]:
         if line.startswith("#"):
             marker, _, text = line.partition(" ")
             if text and set(marker) == {"#"}:
-                blocks.append({"kind": "heading", "level": min(len(marker), 5), "text": text})
+                blocks.append(
+                    {"kind": "heading", "level": min(len(marker), 5), "text": text}
+                )
                 index += 1
                 continue
         if line.startswith("|") and index + 1 < len(lines):
             separator = lines[index + 1].strip()
-            separator_marks = separator.replace("|", "").replace("-", "").replace(":", "").strip()
+            separator_marks = (
+                separator.replace("|", "").replace("-", "").replace(":", "").strip()
+            )
             if separator.startswith("|") and not separator_marks:
                 headers = [cell.strip() for cell in line.strip("|").split("|")]
                 rows: list[list[str]] = []
                 index += 2
                 while index < len(lines) and lines[index].strip().startswith("|"):
                     rows.append(
-                        [cell.strip() for cell in lines[index].strip().strip("|").split("|")]
+                        [
+                            cell.strip()
+                            for cell in lines[index].strip().strip("|").split("|")
+                        ]
                     )
                     index += 1
                 blocks.append({"kind": "table", "headers": headers, "rows": rows})
@@ -377,7 +391,10 @@ async def _multipart_values(
     if len(body) > 25 * 1024 * 1024:
         raise WorkspaceError("Upload request is too large")
     message = BytesParser(policy=policy.default).parsebytes(
-        b"Content-Type: " + content_type.encode("ascii") + b"\r\nMIME-Version: 1.0\r\n\r\n" + body
+        b"Content-Type: "
+        + content_type.encode("ascii")
+        + b"\r\nMIME-Version: 1.0\r\n\r\n"
+        + body
     )
     if not message.is_multipart():
         raise WorkspaceError("Invalid multipart upload")
@@ -411,7 +428,9 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
     app.state.csrf_token = secrets.token_urlsafe(32)
     frontend_assets = FRONTEND_ROOT / "assets"
     if frontend_assets.is_dir():
-        app.mount("/assets", StaticFiles(directory=frontend_assets), name="frontend-assets")
+        app.mount(
+            "/assets", StaticFiles(directory=frontend_assets), name="frontend-assets"
+        )
 
     def spa_response() -> FileResponse:
         index_path = FRONTEND_ROOT / "index.html"
@@ -435,8 +454,12 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
         draft = workspace.show_draft(application_id)
         for package in application["packages"]:
             package["files"] = workspace.package_files(application_id, package["id"])
-            package["readiness"] = workspace.package_readiness(application_id, package["id"])
-            package["is_submitted"] = workspace.package_is_submitted(application_id, package["id"])
+            package["readiness"] = workspace.package_readiness(
+                application_id, package["id"]
+            )
+            package["is_submitted"] = workspace.package_is_submitted(
+                application_id, package["id"]
+            )
             package["can_delete"] = not package["is_submitted"]
         draft["deliverable_files"] = [
             item
@@ -446,7 +469,9 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
         return {"application": application, "draft": draft}
 
     async def form_values(request: Request) -> dict[str, list[str]]:
-        values = parse_qs((await request.body()).decode("utf-8"), keep_blank_values=True)
+        values = parse_qs(
+            (await request.body()).decode("utf-8"), keep_blank_values=True
+        )
         token = _value(values, "csrf_token")
         if not secrets.compare_digest(token, app.state.csrf_token):
             raise HTTPException(status_code=403, detail="Invalid CSRF token")
@@ -459,7 +484,9 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
             "status_labels": STATUS_LABELS,
             "application_labels": APPLICATION_LABELS,
             "draft_status_labels": DRAFT_LABELS,
-            "profile_sections": [{"label": label, "key": key} for label, key in PROFILE_SECTIONS],
+            "profile_sections": [
+                {"label": label, "key": key} for label, key in PROFILE_SECTIONS
+            ],
         }
 
     @app.get("/api/v1/jobs")
@@ -487,7 +514,8 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
                 for job in jobs
                 if normalized_query
                 in " ".join(
-                    str(job.get(key) or "") for key in ("title", "company", "location", "portal")
+                    str(job.get(key) or "")
+                    for key in ("title", "company", "location", "portal")
                 ).casefold()
             ]
         if portal:
@@ -506,7 +534,8 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
             minimum_rating = int(rating)
             jobs = [job for job in jobs if (job.get("rating") or 0) >= minimum_rating]
         counts = {
-            key: sum(_job_status_bucket(job) == key for job in jobs) for key in JOB_STATUS_BUCKETS
+            key: sum(_job_status_bucket(job) == key for job in jobs)
+            for key in JOB_STATUS_BUCKETS
         }
         if status:
             jobs = [job for job in jobs if _job_status_bucket(job) == status]
@@ -564,7 +593,9 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
         return {
             "applications": items,
             "columns": columns,
-            "archived": [item for item in items if item["status"] not in board_statuses],
+            "archived": [
+                item for item in items if item["status"] not in board_statuses
+            ],
         }
 
     @app.get("/api/v1/applications/{application_id}")
@@ -581,8 +612,12 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
         items = []
         for application in workspace.list_applications():
             for package in workspace.list_packages(application["id"]):
-                package["files"] = workspace.package_files(application["id"], package["id"])
-                package["readiness"] = workspace.package_readiness(application["id"], package["id"])
+                package["files"] = workspace.package_files(
+                    application["id"], package["id"]
+                )
+                package["readiness"] = workspace.package_readiness(
+                    application["id"], package["id"]
+                )
                 package["is_submitted"] = workspace.package_is_submitted(
                     application["id"], package["id"]
                 )
@@ -627,7 +662,7 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
             # does not exist yet.
             content = ""
         title = {
-            "shokumu-keirekisho.md": "职务经历书",
+            "shokumu-keirekisho.md": "職務経歴書",
         }.get(relative_path, Path(relative_path).stem)
         return {
             "application": application,
@@ -647,18 +682,24 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
         application_id: str, package_id: str, relative_path: str
     ) -> dict[str, Any]:
         try:
-            path = workspace.package_file_path(application_id, package_id, relative_path)
+            path = workspace.package_file_path(
+                application_id, package_id, relative_path
+            )
             application = workspace.show_application(application_id)
             package = next(
-                item for item in workspace.list_packages(application_id) if item["id"] == package_id
+                item
+                for item in workspace.list_packages(application_id)
+                if item["id"] == package_id
             )
         except (WorkspaceError, StopIteration) as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         logical = Path(relative_path)
         if logical.suffix.lower() != ".md":
-            raise HTTPException(status_code=400, detail="Only Markdown files can be previewed")
+            raise HTTPException(
+                status_code=400, detail="Only Markdown files can be previewed"
+            )
         title = {
-            "shokumu-keirekisho.md": "职务经历书",
+            "shokumu-keirekisho.md": "職務経歴書",
         }.get(logical.name, logical.stem)
         content = path.read_text(encoding="utf-8")
         return {
@@ -696,7 +737,9 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
         raw_rating = _value(values, "rating")
         try:
             rating = int(raw_rating) if raw_rating else None
-            workspace.update_job_review(job_id, rating=rating, notes=_value(values, "notes"))
+            workspace.update_job_review(
+                job_id, rating=rating, notes=_value(values, "notes")
+            )
         except (ValueError, WorkspaceError) as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return RedirectResponse(url=f"/?selected={job_id}", status_code=303)
@@ -708,10 +751,14 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
             application = workspace.create_application_from_job(job_id)
         except WorkspaceError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
-        return RedirectResponse(url=f"/applications/{application['id']}", status_code=303)
+        return RedirectResponse(
+            url=f"/applications/{application['id']}", status_code=303
+        )
 
     @app.post("/applications/{application_id}/status")
-    async def update_application_status(application_id: str, request: Request) -> RedirectResponse:
+    async def update_application_status(
+        application_id: str, request: Request
+    ) -> RedirectResponse:
         values = await form_values(request)
         try:
             workspace.update_status(
@@ -722,12 +769,16 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
         except WorkspaceError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return RedirectResponse(
-            url=_safe_return(_value(values, "return_to"), f"/applications/{application_id}"),
+            url=_safe_return(
+                _value(values, "return_to"), f"/applications/{application_id}"
+            ),
             status_code=303,
         )
 
     @app.post("/applications/{application_id}/delete")
-    async def delete_application(application_id: str, request: Request) -> RedirectResponse:
+    async def delete_application(
+        application_id: str, request: Request
+    ) -> RedirectResponse:
         await form_values(request)
         try:
             workspace.delete_application(application_id)
@@ -736,7 +787,9 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
         return RedirectResponse(url="/applications", status_code=303)
 
     @app.post("/applications/{application_id}/draft/upload")
-    async def upload_application_draft(application_id: str, request: Request) -> RedirectResponse:
+    async def upload_application_draft(
+        application_id: str, request: Request
+    ) -> RedirectResponse:
         try:
             values, uploads = await _multipart_values(request)
             token = _value(values, "csrf_token")
@@ -746,7 +799,9 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
             if unexpected_uploads:
                 raise WorkspaceError("Only shokumu-keirekisho.md can be uploaded")
             documents: dict[str, bytes] = {}
-            for field, canonical_name in (("shokumu_keirekisho", "shokumu-keirekisho.md"),):
+            for field, canonical_name in (
+                ("shokumu_keirekisho", "shokumu-keirekisho.md"),
+            ):
                 upload = uploads.get(field)
                 if not upload:
                     continue
@@ -772,7 +827,9 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
         return RedirectResponse(url=f"/applications/{application_id}", status_code=303)
 
     @app.post("/applications/{application_id}/draft/validate")
-    async def validate_application_draft(application_id: str, request: Request) -> RedirectResponse:
+    async def validate_application_draft(
+        application_id: str, request: Request
+    ) -> RedirectResponse:
         await form_values(request)
         try:
             workspace.validate_draft(application_id, actor="web")
@@ -781,7 +838,9 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
         return RedirectResponse(url=f"/applications/{application_id}", status_code=303)
 
     @app.post("/applications/{application_id}/materials/package")
-    async def save_material_package(application_id: str, request: Request) -> RedirectResponse:
+    async def save_material_package(
+        application_id: str, request: Request
+    ) -> RedirectResponse:
         values = await form_values(request)
         try:
             raw_revision = _value(values, "expected_revision")
@@ -797,7 +856,9 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
         return RedirectResponse(url=f"/applications/{application_id}", status_code=303)
 
     @app.post("/applications/{application_id}/draft/discard")
-    async def discard_application_draft(application_id: str, request: Request) -> RedirectResponse:
+    async def discard_application_draft(
+        application_id: str, request: Request
+    ) -> RedirectResponse:
         values = await form_values(request)
         try:
             raw_revision = _value(values, "expected_revision")
@@ -891,7 +952,9 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
             expected_revision = int(raw_revision) if raw_revision else None
             workspace.save_draft(
                 application_id,
-                documents={relative_path: _raw_value(values, "content").encode("utf-8")},
+                documents={
+                    relative_path: _raw_value(values, "content").encode("utf-8")
+                },
                 label=_value(values, "label") or f"在线编辑 · {relative_path}",
                 status="working",
                 actor="web",
@@ -913,7 +976,9 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
         return RedirectResponse(url=f"/applications/{application_id}", status_code=303)
 
     @app.post("/applications/{application_id}/submit")
-    async def record_submission(application_id: str, request: Request) -> RedirectResponse:
+    async def record_submission(
+        application_id: str, request: Request
+    ) -> RedirectResponse:
         values = await form_values(request)
         try:
             raw_revision = _value(values, "expected_revision")
@@ -953,12 +1018,16 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
             )
         return FileResponse(path, filename=logical.name)
 
-    @app.get("/applications/{application_id}/packages/{package_id}/files/{relative_path:path}")
+    @app.get(
+        "/applications/{application_id}/packages/{package_id}/files/{relative_path:path}"
+    )
     def download_package_file(
         application_id: str, package_id: str, relative_path: str
     ) -> FileResponse:
         try:
-            path = workspace.package_file_path(application_id, package_id, relative_path)
+            path = workspace.package_file_path(
+                application_id, package_id, relative_path
+            )
         except WorkspaceError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         logical = Path(relative_path)
@@ -987,7 +1056,10 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
                 "product": _value(values, f"experience_product_{index}"),
                 "facts": _lines(_value(values, f"experience_facts_{index}")),
             }
-            if any(value for key, value in item.items() if key != "facts") or item["facts"]:
+            if (
+                any(value for key, value in item.items() if key != "facts")
+                or item["facts"]
+            ):
                 experience.append(item)
         education = []
         for index in range(_bounded_count(values, "education_count")):
@@ -1054,7 +1126,9 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
                     "locations": _lines(_value(values, "locations")),
                     "work_style": {
                         "remote_preferred": "remote_preferred" in values,
-                        "maximum_office_days_per_week": (int(office_days) if office_days else None),
+                        "maximum_office_days_per_week": (
+                            int(office_days) if office_days else None
+                        ),
                         "autonomy_preferred": "autonomy_preferred" in values,
                         "focus_time_preferred": "focus_time_preferred" in values,
                     },
@@ -1065,7 +1139,9 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
                     },
                     "hard_constraints": _lines(_value(values, "hard_constraints")),
                     "soft_preferences": _lines(_value(values, "soft_preferences")),
-                    "blacklisted_companies": _lines(_value(values, "blacklisted_companies")),
+                    "blacklisted_companies": _lines(
+                        _value(values, "blacklisted_companies")
+                    ),
                 }
             )
             workspace.update_preferences(current)
