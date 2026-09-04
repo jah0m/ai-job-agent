@@ -7,6 +7,8 @@ not an end-user guide and should not contain candidate personal data.
   interview, and security workflows.
 - `skills/job-search-onboarding/`: first-use conversational workflow.
 - `skills/job-search-web/`: production-only AI Job Agent launcher workflow.
+- `skills/mock-interview/`: Japanese mid-career interview practice, adaptive
+  follow-ups, and private AI assessments; separate from actual hiring outcomes.
 - `skills/*-search/`: public job-portal search contracts and bundled CLIs.
 
 Repository-wide invariants and communication rules remain in

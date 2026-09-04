@@ -1,5 +1,11 @@
 # Interview and outcome tracking
 
+For interactive mock interviews, use the separate
+[`mock-interview` skill](../../mock-interview/SKILL.md). Practice sessions and
+AI practice assessments do not change real application stages and are not
+displayed in the Web dashboard. This reference covers preparation and actual
+interview outcomes, not simulation scores.
+
 Prepare interview material from the archived posting, submitted document
 snapshot, candidate evidence, and known interview stage. Store notes beneath
 the application's private `interview/` directory.
@@ -22,4 +28,3 @@ python scripts/job_search.py status <application-id> rejected --note "..."
 
 Notes may contain sensitive details and must stay under `.job-search/`. Preserve
 the factual outcome and date; distinguish employer feedback from interpretation.
-
