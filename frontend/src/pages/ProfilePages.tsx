@@ -987,20 +987,26 @@ export function PreferencesEditPage() {
       current
         ? {
             ...current,
-            [key]: raw
-              .split("\n")
-              .map((line) => line.trim())
-              .filter(Boolean),
+            // Keep the raw lines (including blank ones) while editing so the
+            // textarea can hold newlines; normalize on save via cleanLines.
+            [key]: raw.split("\n"),
           }
         : current,
     );
+  const cleanLines = (value: unknown): string =>
+    Array.isArray(value)
+      ? value
+          .map((line) => String(line).trim())
+          .filter(Boolean)
+          .join("\n")
+      : "";
   const save = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setSaving(true);
     const values: Record<string, string | number | boolean | null> = {
-      target_roles: joinLines(preferences.target_roles),
-      target_domains: joinLines(preferences.target_domains),
-      locations: joinLines(preferences.locations),
+      target_roles: cleanLines(preferences.target_roles),
+      target_domains: cleanLines(preferences.target_domains),
+      locations: cleanLines(preferences.locations),
       remote_preferred: Boolean(work.remote_preferred),
       autonomy_preferred: Boolean(work.autonomy_preferred),
       focus_time_preferred: Boolean(work.focus_time_preferred),
@@ -1008,9 +1014,9 @@ export function PreferencesEditPage() {
       compensation_currency: compensation.currency ?? "JPY",
       compensation_minimum: compensation.minimum ?? null,
       compensation_target: compensation.target ?? null,
-      hard_constraints: joinLines(preferences.hard_constraints),
-      soft_preferences: joinLines(preferences.soft_preferences),
-      blacklisted_companies: joinLines(preferences.blacklisted_companies),
+      hard_constraints: cleanLines(preferences.hard_constraints),
+      soft_preferences: cleanLines(preferences.soft_preferences),
+      blacklisted_companies: cleanLines(preferences.blacklisted_companies),
     };
     try {
       await postUrlEncoded("/preferences/edit", values);
