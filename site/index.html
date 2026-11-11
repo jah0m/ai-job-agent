@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Architecture walkthrough of AI Job Agent: how the Codex agent loop, the Web dashboard, and the CLI share one local storage layer.">
+<title>AI Job Agent Architecture</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Space+Grotesk:wght@500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0}
+/* Layout: one column, thesis on top, a wide system map, then a step-through of one job posting with a live storage ledger beside the explanation. */
+:root{
+  --bg:#f5f7fa; --surface:#ffffff; --ink:#18212f; --muted:#566176; --line:#d5dbe6;
+  --ai:#5646c2; --ai-bg:#ebe9fb; --code:#0d7567; --code-bg:#dff3ef; --user:#9a5206; --user-bg:#fbeeda;
+  --font-display:"Space Grotesk","Noto Sans JP",system-ui,sans-serif;
+  --font-body:"Noto Sans JP","Hiragino Sans","Yu Gothic UI","Microsoft YaHei",system-ui,sans-serif;
+  --font-mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#10141c; --surface:#19202b; --ink:#e6eaf2; --muted:#9ba6b9; --line:#303a4a;
+  --ai:#ab9ef6; --ai-bg:#292450; --code:#62d2c1; --code-bg:#11352f; --user:#f1b468; --user-bg:#3c2a10; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#10141c; --surface:#19202b; --ink:#e6eaf2; --muted:#9ba6b9; --line:#303a4a;
+  --ai:#ab9ef6; --ai-bg:#292450; --code:#62d2c1; --code-bg:#11352f; --user:#f1b468; --user-bg:#3c2a10; color-scheme:dark }
+
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.75}
+.wrap{max-width:1040px;margin:0 auto;padding-block:28px 56px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:40px}
+header{display:flex;flex-direction:column;gap:14px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.name{text-decoration:none;font-family:var(--font-display);font-size:15px;font-weight:600;letter-spacing:.02em;color:var(--muted)}
+.lang{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.lang button{font:inherit;font-size:13px;padding:4px 12px;background:var(--surface);color:var(--muted);border:0;cursor:pointer}
+.lang button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+h1{font-family:var(--font-display);font-size:clamp(24px,4vw,34px);line-height:1.35;font-weight:600;margin:0;text-wrap:balance;max-width:26em}
+.lede{color:var(--muted);margin:0;max-width:44em}
+.legend{display:flex;gap:8px 18px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.tag{display:inline-flex;align-items:center;font-size:12px;font-weight:500;padding:1px 9px;border-radius:999px;white-space:nowrap}
+.tag.ai{background:var(--ai-bg);color:var(--ai)} .tag.code{background:var(--code-bg);color:var(--code)} .tag.user{background:var(--user-bg);color:var(--user)}
+h2{font-family:var(--font-display);font-size:20px;font-weight:600;margin:0 0 4px}
+section>p.sub{color:var(--muted);margin:0 0 16px;max-width:46em}
+button:focus-visible{outline:2px solid var(--ai);outline-offset:2px}
+
+.map{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px}
+.map svg{display:block;min-width:820px;width:100%;height:auto}
+.map text{font-family:var(--font-body);fill:var(--ink)}
+.map .h{font-size:14px;font-weight:500} .map .s{font-size:12px;fill:var(--muted)}
+.map .rg{font-family:var(--font-display);font-size:14px;font-weight:600}
+.map .box{fill:var(--surface);stroke:var(--line)} .map .gbox{fill:var(--bg);stroke:var(--line)}
+.map .r-ai{fill:var(--ai-bg);stroke:var(--ai)} .map .r-user{fill:var(--user-bg);stroke:var(--user)} .map .r-code{fill:var(--code-bg);stroke:var(--code)}
+.map .t-ai{fill:var(--ai)} .map .t-user{fill:var(--user)} .map .t-code{fill:var(--code)}
+.map .ar{stroke:var(--muted);stroke-width:1.4;fill:none} .map .dash{stroke-dasharray:5 4}
+.map .hd{fill:none;stroke:var(--muted);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.map .store{fill:none;stroke:var(--muted);stroke-dasharray:6 5}
+
+.steps{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.steps button{font:inherit;font-size:13px;display:flex;align-items:center;gap:7px;padding:5px 11px 5px 6px;background:var(--surface);color:var(--muted);border:1px solid var(--line);border-radius:999px;cursor:pointer}
+.steps button .n{font-family:var(--font-mono);font-size:11px;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;background:var(--bg);color:var(--muted)}
+.steps button[aria-current="step"]{color:var(--ink);border-color:var(--ink)}
+.steps button[aria-current="step"] .n{background:var(--ink);color:var(--bg)}
+.stage{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:820px){.stage{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:20px;min-width:0}
+.card h3{font-family:var(--font-display);font-size:19px;font-weight:600;margin:8px 0 8px;line-height:1.4}
+.card p{margin:0 0 12px}
+.who{display:flex;gap:6px;flex-wrap:wrap}
+.cmd{font-family:var(--font-mono);font-size:12.5px;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px 10px;overflow-x:auto;white-space:nowrap;margin:0 0 12px}
+.point{border-top:1px solid var(--line);padding-top:12px;margin-top:4px}
+.point .lbl,.ledger .lbl{font-size:12px;font-weight:500;color:var(--muted);letter-spacing:.04em;display:block;margin-bottom:2px}
+.nav{display:flex;justify-content:space-between;align-items:center;margin-top:16px;gap:8px}
+.nav button{font:inherit;font-size:13px;padding:6px 14px;border-radius:6px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
+.nav button:disabled{opacity:.4;cursor:default}
+.nav span{font-size:12px;color:var(--muted)}
+.ledger{display:flex;flex-direction:column;gap:14px}
+.store-col{display:flex;flex-direction:column;gap:6px}
+.store-col .path{font-family:var(--font-mono);font-size:12.5px;font-weight:500}
+.chips{display:flex;flex-wrap:wrap;gap:6px;min-height:28px;align-items:center}
+.chip{font-family:var(--font-mono);font-size:12px;padding:2px 8px;border-radius:5px;border:1px solid var(--line);color:var(--muted);background:var(--bg)}
+.chip.new{border-color:var(--code);color:var(--code);background:var(--code-bg)}
+.chip.gone{text-decoration:line-through;opacity:.6}
+.empty{font-size:12.5px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div class="top">
+    <a class="name" href="https://github.com/jah0m/ai-job-agent">AI Job Agent · GitHub</a>
+    <div class="lang" role="group" aria-label="Language">
+      <button id="lang-ja" type="button" aria-pressed="true">日本語</button>
+      <button id="lang-en" type="button" aria-pressed="false">English</button>
+      <button id="lang-zh" type="button" aria-pressed="false">中文</button>
+    </div>
+  </div>
+  <h1 data-ja="AI は意味を判断し、コードは事実を検証して保存する" data-en="AI decides what things mean. Code verifies the facts and stores them." data-zh="AI 负责判断语义，代码负责校验事实并落库"></h1>
+  <p class="lede" data-ja="日本の中途採用向けの、ローカルファーストな転職活動ワークスペースです。Codex のエージェントループと Web ダッシュボードは互いを呼び出さず、同じストレージ層だけを共有します。会話は状態になりません。" data-en="A local-first workspace for mid-career job searches in Japan. The Codex agent loop and the Web dashboard never call each other. They share one storage layer, and a conversation is never treated as state." data-zh="面向日本中途求职的本地优先工作区。Codex 的 agent loop 和 Web 仪表盘互不调用，只共用同一个存储层。对话本身不是状态。"></p>
+  <div class="legend">
+    <span><span class="tag ai">AI</span> <span data-ja="推論と意味の判断" data-en="Reasoning and semantic judgment" data-zh="推理与语义判断"></span></span>
+    <span><span class="tag code" data-ja="コード" data-en="Code" data-zh="代码"></span> <span data-ja="決定的な検証と永続化" data-en="Deterministic validation and persistence" data-zh="确定性的校验与持久化"></span></span>
+    <span><span class="tag user" data-ja="ユーザー" data-en="User" data-zh="用户"></span> <span data-ja="確認と外部への操作" data-en="Confirmation and external actions" data-zh="确认与对外操作"></span></span>
+  </div>
+</header>
+
+<section>
+  <h2 data-ja="全体構成" data-en="System map" data-zh="整体结构"></h2>
+  <p class="sub" data-ja="入口は二つ、状態は一つ。破線は人の手による受け渡しで、プログラムの呼び出しではありません。" data-en="Two entry points, one state. The dashed line is a handoff done by a person, not a program call." data-zh="两个入口，一份状态。虚线是人工交接，不是程序调用。"></p>
+  <div class="map">
+  <svg viewBox="0 0 960 552" role="img" aria-labelledby="mapt mapd">
+    <title id="mapt">System map</title>
+    <desc id="mapd">Codex agent loop calls portal CLIs and the job-search CLI. The browser uses React and FastAPI. The CLI and FastAPI share one Workspace service that writes SQLite and a SHA-256 object store. Portal CLIs write evidence into the operations directory.</desc>
+    <defs><marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="hd" d="M2 1L8 5L2 9"/></marker></defs>
+
+    <rect class="r-ai" x="20" y="16" width="420" height="214" rx="12"/>
+    <text class="rg t-ai" x="40" y="42">Codex agent loop</text>
+    <rect class="box" x="60" y="62" width="160" height="46" rx="6"/><text class="h" x="140" y="90" text-anchor="middle" data-ja="Skill を読む" data-en="Read the Skill" data-zh="读取 Skill"></text>
+    <rect class="box" x="260" y="62" width="160" height="46" rx="6"/><text class="h" x="340" y="90" text-anchor="middle" data-ja="ツールを呼ぶ" data-en="Call a tool" data-zh="调用工具"></text>
+    <rect class="box" x="260" y="158" width="160" height="46" rx="6"/><text class="h" x="340" y="186" text-anchor="middle" data-ja="結果を観察する" data-en="Observe the result" data-zh="观察结果"></text>
+    <rect class="box" x="60" y="158" width="160" height="46" rx="6"/><text class="h" x="140" y="186" text-anchor="middle" data-ja="次の一手を決める" data-en="Decide next step" data-zh="决定下一步"></text>
+    <path class="ar" d="M220 85H257" marker-end="url(#ah)"/>
+    <path class="ar" d="M340 108V155" marker-end="url(#ah)"/>
+    <path class="ar" d="M260 181H223" marker-end="url(#ah)"/>
+    <path class="ar" d="M140 158V111" marker-end="url(#ah)"/>
+
+    <rect class="r-user" x="520" y="16" width="420" height="214" rx="12"/>
+    <text class="rg t-user" x="540" y="42" data-ja="Web ダッシュボード" data-en="Web dashboard" data-zh="Web 仪表盘"></text>
+    <rect class="box" x="540" y="62" width="380" height="46" rx="6"/><text class="h" x="730" y="90" text-anchor="middle" data-ja="React SPA（求人・応募・書類の表示と編集）" data-en="React SPA (jobs, applications, materials)" data-zh="React SPA（岗位、申请、材料的显示与编辑）"></text>
+    <rect class="box" x="540" y="158" width="180" height="46" rx="6"/><text class="h" x="630" y="186" text-anchor="middle" data-ja="指示をコピー" data-en="Copy prompt" data-zh="复制指令"></text>
+    <rect class="box" x="740" y="158" width="180" height="46" rx="6"/><text class="h" x="830" y="186" text-anchor="middle" data-ja="PDF/DOCX を登録" data-en="Upload PDF/DOCX" data-zh="上传 PDF/DOCX"></text>
+    <path class="ar dash" d="M540 181H443" marker-end="url(#ah)"/>
+    <text class="s" x="480" y="170" text-anchor="middle" data-ja="手動で貼付" data-en="by hand" data-zh="手动粘贴"></text>
+
+    <rect class="r-code" x="20" y="270" width="200" height="58" rx="6"/><text class="h t-code" x="120" y="294" text-anchor="middle">Portal CLIs</text><text class="s" x="120" y="314" text-anchor="middle" data-ja="公開求人を読み取るだけ" data-en="Read-only public fetch" data-zh="只读抓取公开职位"></text>
+    <rect class="r-code" x="240" y="270" width="200" height="58" rx="6"/><text class="h t-code" x="340" y="294" text-anchor="middle">job-search CLI</text><text class="s" x="340" y="314" text-anchor="middle" data-ja="検証と保存のみ、推論しない" data-en="Validate and store only" data-zh="只校验和保存，不推理"></text>
+    <rect class="r-code" x="520" y="270" width="420" height="58" rx="6"/><text class="h t-code" x="730" y="294" text-anchor="middle">FastAPI</text><text class="s" x="730" y="314" text-anchor="middle" data-ja="JSON API、書き込みは CSRF 保護" data-en="JSON API, CSRF-protected writes" data-zh="JSON API，写入带 CSRF 保护"></text>
+    <path class="ar" d="M120 230V267" marker-end="url(#ah)"/>
+    <path class="ar" d="M340 230V267" marker-end="url(#ah)"/>
+    <path class="ar" d="M730 230V267" marker-end="url(#ah)"/>
+
+    <rect class="r-code" x="240" y="366" width="700" height="48" rx="6"/><text class="h t-code" x="590" y="386" text-anchor="middle">Workspace（Storage-v2）</text><text class="s" x="590" y="404" text-anchor="middle" data-ja="CLI と Web が同じメソッドを呼ぶ" data-en="CLI and Web call the same methods" data-zh="CLI 和 Web 调用同一套方法"></text>
+    <path class="ar" d="M340 328V363" marker-end="url(#ah)"/>
+    <path class="ar" d="M730 328V363" marker-end="url(#ah)"/>
+
+    <rect class="store" x="20" y="436" width="920" height="100" rx="12"/>
+    <text class="s" x="140" y="456" data-ja=".job-search/ ローカルのみ、Git 管理外" data-en=".job-search/ local only, ignored by Git" data-zh=".job-search/ 仅本地，Git 忽略"></text>
+    <rect class="gbox" x="40" y="468" width="180" height="52" rx="6"/><text class="h" x="130" y="490" text-anchor="middle">operations/</text><text class="s" x="130" y="508" text-anchor="middle" data-ja="一時的な証拠と JSON" data-en="Temp evidence and JSON" data-zh="临时证据与 JSON"></text>
+    <rect class="gbox" x="300" y="468" width="280" height="52" rx="6"/><text class="h" x="440" y="490" text-anchor="middle">workspace.sqlite3</text><text class="s" x="440" y="508" text-anchor="middle" data-ja="メタデータの唯一の正本" data-en="Sole authority for metadata" data-zh="元数据的唯一来源"></text>
+    <rect class="gbox" x="620" y="468" width="300" height="52" rx="6"/><text class="h" x="770" y="490" text-anchor="middle">objects/sha256/</text><text class="s" x="770" y="508" text-anchor="middle" data-ja="変更不可、ハッシュで重複排除" data-en="Immutable, deduplicated by hash" data-zh="不可变，按哈希去重"></text>
+    <path class="ar" d="M120 328V465" marker-end="url(#ah)"/>
+    <path class="ar" d="M440 414V465" marker-end="url(#ah)"/>
+    <path class="ar" d="M770 414V465" marker-end="url(#ah)"/>
+  </svg>
+  </div>
+</section>
+
+<section>
+  <h2 data-ja="求人一件がたどる道" data-en="The journey of one job posting" data-zh="一条职位的完整旅程"></h2>
+  <p class="sub" data-ja="公開 URL から提出記録まで。各ステップで誰が動き、ストレージに何が増えるかを示します。左右の矢印キーでも進めます。" data-en="From a public URL to a submission record. Each step shows who acts and what the storage gains. The left and right arrow keys also move between steps." data-zh="从一个公开 URL 到投递记录。每一步标出由谁执行、存储里多了什么。也可以用左右方向键切换。"></p>
+  <div class="steps" id="steps"></div>
+  <div class="stage">
+    <div class="card">
+      <div class="who" id="who"></div>
+      <h3 id="s-title"></h3>
+      <p id="s-body"></p>
+      <div class="cmd" id="s-cmd"></div>
+      <div class="point"><span class="lbl" data-ja="設計上の要点" data-en="Design point" data-zh="设计要点"></span><span id="s-point"></span></div>
+      <div class="nav">
+        <button type="button" id="prev" data-ja="← 前へ" data-en="← Back" data-zh="← 上一步"></button>
+        <span id="pos"></span>
+        <button type="button" id="next" data-ja="次へ →" data-en="Next →" data-zh="下一步 →"></button>
+      </div>
+    </div>
+    <div class="card ledger">
+      <span class="lbl" data-ja="この時点のストレージ（例）　緑はこのステップで追加" data-en="Storage at this point (example). Green was added in this step." data-zh="此刻的存储（示例）　绿色为本步新增"></span>
+      <div class="store-col"><span class="path">operations/</span><div class="chips" id="c-ops"></div></div>
+      <div class="store-col"><span class="path">workspace.sqlite3</span><div class="chips" id="c-db"></div></div>
+      <div class="store-col"><span class="path">objects/sha256/</span><div class="chips" id="c-obj"></div></div>
+    </div>
+  </div>
+</section>
+</div>
+
+<script>
+const STEPS = [
+ {k:["取得","抓取","Fetch"], who:["code"],
+  t:["Portal CLI が公開の求人詳細ページを取得する","Portal CLI 抓取公开的职位详情页","A portal CLI fetches the public job detail page"],
+  b:["Codex が Skill に従って求人サイト用の CLI を呼び出します。CLI は読み取り専用で、ページの本文と構造化データをそのまま operations/ に保存します。ログインや応募フォームには触れません。","Codex 按 Skill 调用对应招聘网站的 CLI。CLI 是只读的，把页面正文和结构化数据原样保存到 operations/。不碰登录页和申请表。","Following the Skill, Codex calls the CLI for that job site. The CLI is read-only and saves the page text and structured data unchanged into operations/. It never touches login pages or application forms."],
+  c:"*-search CLI  →  operations/<operation-id>/snapshot.json",
+  p:["取得は意味を判断しません。サイトごとに得られる項目が違うことを前提にし、解釈は次の段階に任せます。","抓取不做语义判断。默认各网站能拿到的字段不同，解释留给后面的步骤。","Fetching makes no semantic decisions. It assumes every site publishes different fields and leaves interpretation to later steps."],
+  ops:["snapshot.json"], db:[], obj:[]},
+ {k:["証拠の登録","登记证据","Evidence"], who:["code"],
+  t:["job evidence が URL を正規化し、スナップショットをハッシュする","job evidence 规范化 URL 并计算快照哈希","job evidence canonicalizes the URL and hashes the snapshot"],
+  b:["出所のメタデータ（プロバイダ、正規化 URL、取得時刻、スナップショットのパスと SHA-256）を返します。何も保存せず、次の AI に渡す値を確定させるだけです。","返回来源元数据（提供方、规范化 URL、抓取时间、快照路径和 SHA-256）。不写入任何东西，只是把交给 AI 的值定下来。","It returns the source metadata: provider, canonical URL, retrieval time, snapshot path and SHA-256. It stores nothing. It only fixes the values handed to the AI."],
+  c:"job evidence --portal hrmos --url <url> --snapshot <path> --retriever ats-search/1",
+  p:["出所は AI に計算させません。AI はこの値を写すだけなので、ハッシュや URL を書き換える余地がありません。","来源信息不让 AI 计算。AI 只能照抄这些值，没有改写哈希或 URL 的余地。","The AI never computes provenance. It only copies these values, so it has no room to rewrite a hash or a URL."],
+  ops:["snapshot.json"], db:[], obj:[]},
+ {k:["AI マッピング","AI 映射","AI mapping"], who:["ai"],
+  t:["AI がページの事実を schema v2 に対応づける","AI 把页面事实映射到 schema v2","The AI maps page facts to schema v2"],
+  b:["詳細ページ全文を読み、勤務地・年収・働き方などを正規化します。各フィールドに原文の抜粋（field_evidence）を付けます。ページに根拠がない項目は出力しません。","读完整的详情页，规范化地点、薪资、工作方式等字段，并为每个字段附上原文摘录（field_evidence）。页面没有依据的字段直接不输出。","It reads the whole detail page and normalizes location, salary, work style and other fields, attaching a source excerpt (field_evidence) to each. Fields the page does not support are left out."],
+  c:"operations/<operation-id>/normalized.json",
+  p:["必須は 4 項目だけです。null、空文字、推測値は禁止なので、「分からない」は欠損として表現されます。","必填只有 4 项。禁止 null、空字符串和猜测值，所以“不知道”就表现为字段缺失。","Only four fields are required. null, blank strings and guesses are forbidden, so “unknown” is expressed as an absent field."],
+  ops:["snapshot.json","normalized.json"], db:[], obj:[]},
+ {k:["検証","校验","Validate"], who:["code"],
+  t:["job validate が AI の出力を検査する","job validate 检查 AI 的输出","job validate checks the AI output"],
+  b:["JSON Schema に加えて、出所の一致、スナップショットの存在とハッシュ、年収の上下限、リモート区分と出社日数の整合、証拠が存在するフィールドだけを指しているかを確認します。読み取り専用です。","除了 JSON Schema，还检查来源是否一致、快照是否存在且哈希吻合、薪资上下限、远程类型与出社天数是否自洽、证据是否只指向实际存在的字段。只读。","Beyond JSON Schema, it checks that provenance agrees, the snapshot exists and matches its hash, salary bounds are ordered, remote type and office days are consistent, and evidence points only at fields that are present. It is read-only."],
+  c:"job validate --portal hrmos --file normalized.json",
+  p:["AI の出力は信頼できない入力として扱います。未知のプロパティ一つでレコード全体を拒否します。","AI 的输出按不可信输入处理。出现一个未知属性就拒绝整条记录。","AI output is treated as untrusted input. A single unknown property rejects the whole record."],
+  ops:["snapshot.json","normalized.json"], db:[], obj:[]},
+ {k:["取り込み","导入","Import"], who:["code"],
+  t:["job import が検証をやり直し、原子的に書き込む","job import 重新校验并原子写入","job import validates again and writes atomically"],
+  b:["バッチ全体を検証してからトランザクションを開始します。スナップショットは先にオブジェクトとして fsync と rename を済ませ、その後で SQLite に参照を記録します。コミット後に一時ファイルを消去します。","先校验整个批次，再开始事务。快照先作为对象完成 fsync 和 rename，然后才在 SQLite 里记录引用。提交之后清除临时文件。","The whole batch is validated before the transaction begins. The snapshot is first written as an object, fsynced and renamed, and only then referenced from SQLite. Staged files are removed after the commit."],
+  c:"job import --portal hrmos --file normalized.json",
+  p:["途中で落ちても残るのは未参照のオブジェクトだけです。DB が書きかけのファイルを指すことはなく、失敗時は入力が診断用に残ります。","中途崩溃只会留下未被引用的对象。数据库不可能指向写了一半的文件，失败时输入会保留下来供诊断。","A crash can only leave an unreferenced object. The database can never point at a half-written file, and on failure the inputs are kept for diagnosis."],
+  ops:[], db:["job","job_version v1"], obj:["posting snapshot"]},
+ {k:["評価","评估","Evaluate"], who:["ai","code"],
+  t:["AI が適合度を評価し、job evaluate が保存する","AI 评估匹配度，job evaluate 保存","The AI evaluates fit and job evaluate stores it"],
+  b:["強みとギャップは、キーワードの重なりではなく、根拠を示した結論として AI が書きます。CLI は構造を検証して追記するだけで、推論はしません。","优势和差距由 AI 写成有依据的结论，而不是关键词交集。CLI 只校验结构并追加保存，不做推理。","The AI writes strengths and gaps as evidence-backed conclusions, not keyword overlaps. The CLI only validates the structure and appends it. It does no reasoning."],
+  c:"job evaluate <job-id> --file evaluation.json",
+  p:["評価は使った求人・プロフィール・希望条件のバージョン ID を記録します。古くなったかどうかは ID の比較で決まります。","评估记录了所用的职位、履历、偏好的版本 ID。是否过期由 ID 比较决定。","An evaluation records the version IDs of the job, profile and preferences it used. Staleness is decided by comparing IDs."],
+  ops:[], db:["job","job_version v1","evaluation → job v1 · profile v3 · prefs v2"], obj:["posting snapshot"]},
+ {k:["下書き","起草","Draft"], who:["user","ai","code"],
+  t:["応募を作成し、AI が職務経歴書を下書きする","创建申请，AI 起草職務経歴書","Create the application, and the AI drafts the 職務経歴書"],
+  b:["ユーザーが Web で応募を作成し、指示をコピーして Codex に貼り付けます。AI が求人ごとの職務経歴書を書き、保存のたびに変更不可のリビジョンが増えます。動くのは「現在のリビジョン」を指すポインタだけです。","用户在 Web 里创建申请，复制指令粘贴到 Codex。AI 写出职位定制的職務経歴書，每次保存都新增一个不可变 revision。会变的只有指向“当前 revision”的指针。","The user creates an application in the Web dashboard, copies the prompt and pastes it into Codex. The AI writes a job-specific 職務経歴書 (work-history document), and every save adds an immutable revision. Only the pointer to the current revision moves."],
+  c:"draft save  (with the expected revision)",
+  p:["同時編集は compare-and-swap で防ぎます。Web と Codex が同じ下書きを触っても、古い側の保存は拒否されます。","并发编辑用 compare-and-swap 防护。Web 和 Codex 同时改同一份草稿时，旧的一方保存会被拒绝。","Concurrent edits are guarded by compare-and-swap. If the Web dashboard and Codex touch the same draft, the stale save is rejected."],
+  ops:[], db:["job","job_version v1","evaluation → job v1 · profile v3 · prefs v2","application","draft_revision r1","draft_revision r2","current → r2"], obj:["posting snapshot","shokumu-keirekisho.md @r1","shokumu-keirekisho.md @r2"]},
+ {k:["パッケージ","材料包","Package"], who:["user","code"],
+  t:["最終ファイルを登録し、書類パッケージを固定する","上传最终文件，冻结材料包","Upload the final file and freeze the material package"],
+  b:["レイアウトと PDF 書き出しは外部ツールで行い、ユーザーが最終版をアップロードします。パッケージは一つのリビジョンが参照するファイル群をそのまま固定します。","排版和导出 PDF 在外部工具完成，用户上传最终版。材料包把某个 revision 引用的文件集合原样冻结。","Layout and PDF export happen in external tools, and the user uploads the final version. A package freezes the exact set of files one revision refers to."],
+  c:"package create",
+  p:["下書き・パッケージ・提出の間でファイルをコピーしません。同じハッシュを参照するだけなので、内容が一致していることが構造上保証されます。","草稿、材料包、投递之间不复制文件，只引用同一个哈希，所以内容一致是结构上保证的。","No file is copied between draft, package and submission. They refer to the same hash, so identical content is guaranteed by the structure."],
+  ops:[], db:["job","job_version v1","evaluation → job v1 · profile v3 · prefs v2","application","draft_revision r1","draft_revision r2","current → r2","package → r2"], obj:["posting snapshot","shokumu-keirekisho.md @r1","shokumu-keirekisho.md @r2","shokumu-keirekisho.pdf"]},
+ {k:["提出記録","投递记录","Submission"], who:["user","code"],
+  t:["ユーザーが外部で応募し、事実を記録する","用户在外部投递，再记录事实","The user applies externally, then records what happened"],
+  b:["実際の応募は採用サイトやメールでユーザーが行います。その後、日時・経路・証拠レベル（exact_files / source_only / status_only）を記録します。システムが応募を送ることはありません。","真实投递由用户在招聘网站或邮件里完成。之后记录时间、渠道和证据等级（exact_files / source_only / status_only）。系统不会代为发送申请。","The user sends the real application through the employer site or email. Afterwards they record the time, channel and evidence level (exact_files / source_only / status_only). The system never sends an application."],
+  c:"submit",
+  p:["提出記録はパッケージと正確なファイルハッシュを参照し、DB トリガーが更新を拒否します。証拠が弱い場合も、弱いと明記して記録します。","投递记录引用材料包和准确的文件哈希，数据库触发器拒绝修改。证据不足时也如实标注为不足。","A submission refers to its package and the exact file hashes, and database triggers reject updates. Weak evidence is still recorded, and labeled as weak."],
+  ops:[], db:["job","job_version v1","evaluation → job v1 · profile v3 · prefs v2","application","draft_revision r1","draft_revision r2","current → r2","package → r2","submission → package · exact_files"], obj:["posting snapshot","shokumu-keirekisho.md @r1","shokumu-keirekisho.md @r2","shokumu-keirekisho.pdf"]}
+];
+const WHO = {ai:["AI","AI","AI"], code:["コード","代码","Code"], user:["ユーザー","用户","User"]};
+const IDX = {ja:0, zh:1, en:2}, HTMLLANG = {ja:"ja", zh:"zh-CN", en:"en"};
+let lang = "ja", cur = 0;
+try { const s = localStorage.getItem("aja-lang"); if (s in IDX) lang = s; } catch (e) {}
+const L = p => p[IDX[lang]];
+const $ = id => document.getElementById(id);
+function el(tag, cls, text){ const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+function chips(id, now, before, emptyText){
+  const box = $(id); box.replaceChildren();
+  before.filter(x => !now.includes(x)).forEach(x => box.append(el("span","chip gone",x)));
+  now.forEach(x => box.append(el("span", "chip" + (before.includes(x) ? "" : " new"), x)));
+  if (!box.children.length) box.append(el("span","empty",emptyText));
+}
+function render(){
+  document.documentElement.lang = HTMLLANG[lang];
+  document.querySelectorAll("[data-ja]").forEach(e => { e.textContent = e.getAttribute("data-" + lang); });
+  Object.keys(IDX).forEach(k => $("lang-" + k).setAttribute("aria-pressed", lang === k));
+  const nav = $("steps"); nav.replaceChildren();
+  STEPS.forEach((s, i) => {
+    const b = el("button"); b.type = "button"; b.id = "step-" + i;
+    if (i === cur) b.setAttribute("aria-current","step");
+    b.append(el("span","n",String(i + 1)), el("span",null,L(s.k)));
+    b.onclick = () => { cur = i; render(); };
+    nav.append(b);
+  });
+  const s = STEPS[cur], prev = cur ? STEPS[cur - 1] : {ops:[],db:[],obj:[]};
+  const who = $("who"); who.replaceChildren(); s.who.forEach(w => who.append(el("span","tag " + w, L(WHO[w]))));
+  $("s-title").textContent = L(s.t); $("s-body").textContent = L(s.b); $("s-cmd").textContent = s.c; $("s-point").textContent = L(s.p);
+  $("pos").textContent = (cur + 1) + " / " + STEPS.length;
+  $("prev").disabled = cur === 0; $("next").disabled = cur === STEPS.length - 1;
+  const none = L(["まだ何もない","还没有内容","Nothing yet"]);
+  chips("c-ops", s.ops, prev.ops, cur >= 4 ? L(["空（取り込み後に消去済み）","空（导入成功后已清除）","Empty (cleared after import)"]) : none);
+  chips("c-db", s.db, prev.db, none);
+  chips("c-obj", s.obj, prev.obj, none);
+}
+function setLang(v){ lang = v; try { localStorage.setItem("aja-lang", v); } catch (e) {} render(); }
+Object.keys(IDX).forEach(k => { $("lang-" + k).onclick = () => setLang(k); });
+$("prev").onclick = () => { if (cur > 0) { cur--; render(); } };
+$("next").onclick = () => { if (cur < STEPS.length - 1) { cur++; render(); } };
+document.addEventListener("keydown", e => {
+  if (e.key === "ArrowRight" && cur < STEPS.length - 1) { cur++; render(); }
+  else if (e.key === "ArrowLeft" && cur > 0) { cur--; render(); }
+});
+render();
+</script>
+</body>
+</html>

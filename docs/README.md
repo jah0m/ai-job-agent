@@ -7,7 +7,8 @@ mixed with implementation rules or private product planning.
 
 - [First-use guide](user/first-use-guide.md): starting AI Job Agent, completing a
   profile, searching jobs, preparing materials, and recording a real external
-  submission.
+  submission. Available in [简体中文](user/first-use-guide.md) and
+  [日本語](user/first-use-guide.ja.md).
 
 ## Developers
 

@@ -1,6 +1,6 @@
 # AI Job Agent
 
-English | [简体中文](README.zh.md)
+English | [简体中文](README.zh.md) | [日本語](README.ja.md)
 
 **A local-first workspace for mid-career job searches in Japan: manage the process in AI Job Agent, and use Codex to find roles, evaluate fit, and prepare Japanese application materials.**
 
@@ -120,6 +120,7 @@ Application materials have explicit lifecycle boundaries:
 
 - **Users:** [first-use guide](docs/user/first-use-guide.md)
 - **Developers:** [development and setup](docs/developer/development.md), [architecture](docs/developer/architecture.md), [job discovery and ingestion](docs/developer/job-ingestion.md), and [storage model](docs/developer/storage-model.md)
+- **Architecture walkthrough:** [interactive overview](https://jah0m.github.io/ai-job-agent/) of how Codex, the Web dashboard, and the CLI work together
 - **AI agents:** [repository rules](AGENTS.md) and [agent workflows](.agents/README.md)
 
 ## Project boundaries
