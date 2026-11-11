@@ -101,7 +101,7 @@ export function ProfilePage() {
         actions={
           <>
             <AiPromptButton
-              label="AI 生成履历"
+              label="复制履历完善指令"
               prompt={AI_PROMPTS.profile}
               successDescription="请粘贴到 Codex 中开始生成。"
             />
@@ -810,7 +810,7 @@ export function PreferencesPage() {
         actions={
           <>
             <AiPromptButton
-              label="AI 生成偏好"
+              label="复制偏好完善指令"
               prompt={AI_PROMPTS.preferences}
               successDescription="请粘贴到 Codex 中开始生成。"
             />

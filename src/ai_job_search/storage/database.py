@@ -198,6 +198,13 @@ class StorageDatabase(StorageDomainPort):
               created_at TEXT NOT NULL,
               data_json TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS application_actions (
+              application_id TEXT PRIMARY KEY REFERENCES applications(id) ON DELETE CASCADE,
+              title TEXT NOT NULL,
+              due_date TEXT,
+              completed_at TEXT,
+              revision INTEGER NOT NULL DEFAULT 1
+            );
             CREATE TABLE IF NOT EXISTS drafts (
               application_id TEXT PRIMARY KEY REFERENCES applications(id) ON DELETE CASCADE,
               draft_id TEXT NOT NULL UNIQUE,

@@ -138,7 +138,15 @@ export type Submission = {
   files: FileEntry[] | string[];
 };
 
+export type NextAction = {
+  title: string;
+  due_date: string | null;
+  completed_at: string | null;
+  revision: number;
+};
+
 export type Application = {
+  next_action: NextAction;
   id: string;
   company: string;
   role: string;
@@ -154,6 +162,7 @@ export type Application = {
 };
 
 export type ApplicationListItem = {
+  next_action: NextAction;
   id: string;
   company: string;
   role: string;

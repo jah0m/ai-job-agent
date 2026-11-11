@@ -25,6 +25,7 @@
     "test:portals": "npm run test --workspace=linkedin-cli && npm run test --workspace=green-cli && npm run test --workspace=geekly-cli && npm run test --workspace=tokyodev-search-cli && npm run test --workspace=lapras-search-cli && npm run test --workspace=ats-search-cli",
     "typecheck:portals": "npm run typecheck --workspace=linkedin-cli && npm run typecheck --workspace=green-cli && npm run typecheck --workspace=geekly-cli && npm run typecheck --workspace=tokyodev-search-cli && npm run typecheck --workspace=lapras-search-cli && npm run typecheck --workspace=ats-search-cli",
     "check:frontend": "npm run check --workspace=ai-job-agent-frontend",
+    "test:frontend": "npm run test --workspace=ai-job-agent-frontend",
     "build:frontend": "npm run build --workspace=ai-job-agent-frontend",
     "dev:frontend": "npm run dev --workspace=ai-job-agent-frontend",
     "test": "npm run test:portals"

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from datetime import date
 from pathlib import Path
 from typing import Any, cast
 
@@ -186,7 +187,80 @@ class ApplicationStorageMixin(StorageDatabase):
                 "FROM applications a JOIN drafts d ON d.application_id=a.id "
                 "ORDER BY a.created_at DESC"
             ).fetchall()
-        return [dict(row) for row in rows]
+            actions = {
+                row["application_id"]: dict(row)
+                for row in connection.execute("SELECT * FROM application_actions")
+            }
+        return [
+            {**dict(row), "next_action": actions.get(row["id"], self._empty_action())}
+            for row in rows
+        ]
+
+    @staticmethod
+    def _empty_action() -> dict[str, Any]:
+        return {"title": "", "due_date": None, "completed_at": None, "revision": 0}
+
+    def update_next_action(
+        self,
+        application_id: str,
+        *,
+        expected_revision: int,
+        operation: str = "save",
+        title: str = "",
+        due_date: str | None = None,
+    ) -> dict[str, Any]:
+        """Edit one current action; retain changes in application event history."""
+        if operation not in {"save", "complete", "reopen", "clear"}:
+            raise WorkspaceError("不支持的待办操作")
+        if operation == "save":
+            title = title.strip()
+            if not title or len(title) > 240:
+                raise WorkspaceError("下一步行动须为 1–240 个字符")
+            if due_date:
+                try:
+                    if date.fromisoformat(due_date).isoformat() != due_date:
+                        raise ValueError
+                except ValueError as exc:
+                    raise WorkspaceError("到期日须为有效的 YYYY-MM-DD 日期") from exc
+        with self.connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            if not connection.execute(
+                "SELECT 1 FROM applications WHERE id=?", (application_id,)
+            ).fetchone():
+                raise WorkspaceError(f"Unknown application: {application_id}")
+            row = connection.execute(
+                "SELECT * FROM application_actions WHERE application_id=?", (application_id,)
+            ).fetchone()
+            previous = dict(row) if row else self._empty_action()
+            if previous["revision"] != expected_revision:
+                raise WorkspaceError("待办已在别处更新，请核对最新内容后重试")
+            if operation in {"complete", "reopen"} and not previous["title"]:
+                raise WorkspaceError("请先设置下一步行动")
+            current = dict(previous)
+            if operation == "save":
+                current.update(title=title, due_date=due_date or None, completed_at=None)
+            elif operation == "clear":
+                current.update(title="", due_date=None, completed_at=None)
+            else:
+                current["completed_at"] = now_iso() if operation == "complete" else None
+            current["revision"] = expected_revision + 1
+            current["application_id"] = application_id
+            connection.execute(
+                "INSERT INTO application_actions(application_id,title,due_date,completed_at,revision) "
+                "VALUES(:application_id,:title,:due_date,:completed_at,:revision) "
+                "ON CONFLICT(application_id) DO UPDATE SET title=excluded.title,"
+                "due_date=excluded.due_date,completed_at=excluded.completed_at,revision=excluded.revision",
+                current,
+            )
+            connection.execute(
+                "UPDATE applications SET updated_at=?,revision=revision+1 WHERE id=?",
+                (now_iso(), application_id),
+            )
+            self._add_event(
+                connection, application_id, f"action.{operation}",
+                {"before": previous, "after": current},
+            )
+        return current
 
     def delete_application(self, application_id: str) -> dict[str, Any]:
         """Delete an application only while it is still an empty draft shell.
@@ -317,6 +391,10 @@ class ApplicationStorageMixin(StorageDatabase):
                 "SELECT * FROM submissions WHERE application_id=? ORDER BY recorded_at",
                 (application_id,),
             ).fetchall()
+            action = connection.execute(
+                "SELECT * FROM application_actions WHERE application_id=?", (application_id,)
+            ).fetchone()
+            record["next_action"] = dict(action) if action else self._empty_action()
             record["submissions"] = []
             for submission_row in submission_rows:
                 submission = dict(submission_row)

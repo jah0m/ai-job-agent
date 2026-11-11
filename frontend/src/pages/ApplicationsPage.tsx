@@ -10,6 +10,7 @@ import {
   useToast,
 } from "../components/Layout";
 import { formatDate } from "../format";
+import { preparationState } from "../preparation";
 import type {
   Application,
   ApplicationListItem,
@@ -59,6 +60,14 @@ function ApplicationCard({
         <div className="kanban-card-link">
           <h3>{item.role}</h3>
           <p>{item.company}</p>
+          {item.next_action.title && !item.next_action.completed_at ? (
+            <p className="kanban-next-action">
+              下一步：{item.next_action.title}
+              {item.next_action.due_date
+                ? ` · ${item.next_action.due_date}`
+                : ""}
+            </p>
+          ) : null}
         </div>
       </button>
       <div className="kanban-card-footer">
@@ -113,19 +122,16 @@ function ApplicationInspector({
   labels: Session["application_labels"];
   onClose: () => void;
 }) {
-  const draftPaths = new Set(
-    detail?.draft.files.map((file) => file.path) ?? [],
-  );
-  const hasDocuments = draftPaths.has("shokumu-keirekisho.md");
-  const hasDeliverables = Boolean(detail?.draft.deliverable_files.length);
-  const hasPackage = Boolean(detail?.application.packages.length);
+  const preparation = detail
+    ? preparationState(detail.application, detail.draft)
+    : null;
+  const hasDocuments = preparation?.contentReady ?? false;
+  const hasDeliverables = preparation?.hasDeliverables ?? false;
+  const hasPackage = preparation?.steps[2] ?? false;
   const hasSubmission = Boolean(detail?.application.submissions.length);
-  const completedCount = [
-    hasDocuments,
-    hasDeliverables,
-    hasPackage,
-    hasSubmission,
-  ].filter(Boolean).length;
+  const completedCount = [hasDocuments, hasDeliverables, hasPackage].filter(
+    Boolean,
+  ).length;
 
   return (
     <aside
@@ -167,18 +173,22 @@ function ApplicationInspector({
       <div className="inspector-progress" aria-live="polite">
         <div className="inspector-progress-heading">
           <span>材料完成度</span>
-          <strong>{loading ? "读取中" : `${completedCount} / 4`}</strong>
+          <strong>{loading ? "读取中" : `${completedCount} / 3`}</strong>
         </div>
         <div className="inspector-progress-track" aria-hidden="true">
-          <span style={{ width: `${loading ? 0 : completedCount * 25}%` }} />
+          <span
+            style={{ width: `${loading ? 0 : (completedCount / 3) * 100}%` }}
+          />
         </div>
       </div>
       <ul className="inspector-completion-list" aria-label="申请准备状态">
-        <CompletionState label="職務経歴書" complete={hasDocuments} />
-        <CompletionState label="实际投递文件" complete={hasDeliverables} />
-        <CompletionState label="材料包" complete={hasPackage} />
-        <CompletionState label="投递记录" complete={hasSubmission} />
+        <CompletionState label="职务经历书基础检查" complete={hasDocuments} />
+        <CompletionState label="最终文件已上传" complete={hasDeliverables} />
+        <CompletionState label="当前版本材料包" complete={hasPackage} />
       </ul>
+      <p className="inspector-note">
+        投递记录：{hasSubmission ? "已有记录" : "尚未记录"}（不计入材料完成度）
+      </p>
       <Link
         className="button button-secondary inspector-detail-link"
         to={`/applications/${item.id}`}

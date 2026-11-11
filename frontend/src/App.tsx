@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { api } from "./api";
 import { AppShell, EmptyState } from "./components/Layout";
+import { TodayActionsPage } from "./components/TodayActions";
 import { ApplicationDetailPage } from "./pages/ApplicationDetailPage";
 import { ApplicationsPage } from "./pages/ApplicationsPage";
 import { DashboardPage } from "./pages/DashboardPage";
@@ -64,6 +65,7 @@ export default function App() {
       <AppShell session={session}>
         <Routes>
           <Route element={<DashboardPage session={session} />} path="/" />
+          <Route element={<TodayActionsPage />} path="/today" />
           <Route
             element={<ApplicationsPage session={session} />}
             path="/applications"

@@ -1,5 +1,6 @@
 import {
   BriefcaseBusiness,
+  CalendarCheck2,
   ClipboardList,
   FileStack,
   Settings2,
@@ -9,6 +10,7 @@ import { NavLink } from "react-router-dom";
 
 const navItems = [
   { to: "/", label: "岗位", icon: BriefcaseBusiness, end: true },
+  { to: "/today", label: "今日待办", icon: CalendarCheck2 },
   { to: "/applications", label: "申请", icon: ClipboardList },
   { to: "/profile", label: "个人履历", icon: UserRound },
   { to: "/preferences", label: "求职偏好", icon: Settings2 },

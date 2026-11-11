@@ -25,6 +25,8 @@ jobs:
         run: npm run check:frontend
       - name: Build frontend
         run: npm run build:frontend
+      - name: Frontend behavior tests
+        run: npm run test:frontend
       - name: Portal TypeScript checks
         run: npm run typecheck:portals
       - name: Portal tests

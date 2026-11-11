@@ -775,6 +775,22 @@ def create_app(workspace_root: str | Path | None = None) -> FastAPI:
             status_code=303,
         )
 
+    @app.post("/applications/{application_id}/next-action")
+    async def update_application_action(
+        application_id: str, request: Request
+    ) -> dict[str, Any]:
+        values = await form_values(request)
+        try:
+            return workspace.update_next_action(
+                application_id,
+                expected_revision=int(_value(values, "expected_revision")),
+                operation=_value(values, "operation") or "save",
+                title=_value(values, "title"),
+                due_date=_value(values, "due_date") or None,
+            )
+        except (ValueError, WorkspaceError) as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     @app.post("/applications/{application_id}/delete")
     async def delete_application(
         application_id: str, request: Request

@@ -26,7 +26,9 @@ import {
   StatusBadge,
   useToast,
 } from "../components/Layout";
+import { NextActionEditor } from "../components/NextActionEditor";
 import { fileName, filePurpose, formatBytes, formatDate } from "../format";
+import { preparationState } from "../preparation";
 import {
   buildApplicationDiscussionPrompt,
   buildApplicationPromptFallback,
@@ -219,6 +221,9 @@ function ValidationBanner({ draft }: { draft: Draft }) {
 type ActivityEvent = Application["events"][number];
 
 function activityEventKey(event: ActivityEvent): string {
+  if (event.type.startsWith("action.")) {
+    return `${event.type}:${JSON.stringify(event.data)}`;
+  }
   if (event.type === "status.changed") {
     return `${event.type}:${String(event.data.status)}:${String(event.data.note ?? "")}`;
   }
@@ -244,11 +249,25 @@ function ActivityItem({
   event: ActivityEvent;
   labels: Record<string, string>;
 }) {
+  const snapshot =
+    event.type === "action.clear" ? event.data.before : event.data.after;
+  const action =
+    event.type.startsWith("action.") && snapshot && typeof snapshot === "object"
+      ? (snapshot as Record<string, unknown>)
+      : null;
   return (
     <li key={`${event.type}-${event.created_at}-${JSON.stringify(event.data)}`}>
       <span className="activity-dot" />
       <div>
         <strong>{eventLabel(event.type, event.data, labels)}</strong>
+        {action ? (
+          <p>
+            {String(action.title ?? "")}
+            {action.due_date
+              ? ` · 到期 ${String(action.due_date)}`
+              : " · 未设日期"}
+          </p>
+        ) : null}
         {typeof event.data.note === "string" ? <p>{event.data.note}</p> : null}
         <time>{formatDate(event.created_at, true)}</time>
       </div>
@@ -488,7 +507,7 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
     if (!applicationId) return;
     try {
       const data = await api.application(applicationId);
-      setApplication(data.application);
+      setApplication({ ...data.application, ai_prompt: data.ai_prompt });
       setDraft(data.draft);
       setSelectedStatus(data.application.status);
     } catch (error) {
@@ -503,6 +522,12 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
   useEffect(() => {
     void load();
   }, [load]);
+  // The anchor target only exists after the async load, so the browser's own
+  // hash navigation has already missed it.
+  useEffect(() => {
+    if (loading || window.location.hash !== "#next-action") return;
+    document.getElementById("next-action")?.scrollIntoView({ block: "start" });
+  }, [loading]);
 
   const mutate = async (key: string, action: () => Promise<Response>) => {
     setBusy(key);
@@ -540,11 +565,10 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
     );
 
   const draftPaths = new Set(draft.files.map((file) => file.path));
-  const hasSourceDocuments = documentNames.every(({ path }) =>
-    draftPaths.has(path),
-  );
-  const hasDeliverables = draft.deliverable_files.length > 0;
-  const hasMaterialPackage = application.packages.length > 0;
+  const preparation = preparationState(application, draft);
+  const hasSourceDocuments = preparation.contentReady;
+  const hasDeliverables = preparation.hasDeliverables;
+  const hasMaterialPackage = preparation.steps[2];
   const hasSubmissionRecord = application.submissions.length > 0;
   const canDeleteApplication =
     draft.revision === 0 &&
@@ -552,12 +576,7 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
     draft.files.length === 0 &&
     application.packages.length === 0 &&
     application.submissions.length === 0;
-  const preparationSteps = [
-    hasSourceDocuments,
-    hasDeliverables,
-    hasMaterialPackage,
-    hasSubmissionRecord,
-  ];
+  const preparationSteps = preparation.steps;
   const completedPreparationSteps = preparationSteps.filter(Boolean).length;
   const currentPreparationStep = preparationSteps.findIndex(
     (isComplete) => !isComplete,
@@ -568,12 +587,6 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
       : currentPreparationStep === index
         ? "is-current"
         : "is-pending";
-  const preparationStepState = (index: number, isComplete: boolean) =>
-    isComplete
-      ? "已完成"
-      : currentPreparationStep === index
-        ? "进行中"
-        : "待进行";
   const aiPrompt =
     application.ai_prompt ?? buildApplicationPromptFallback(application.id);
   const updateStatus = () =>
@@ -663,9 +676,10 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
         actions={
           <>
             <AiPromptButton
-              label="复制申请ID和AI讨论"
+              label="复制申请讨论指令"
               prompt={buildApplicationDiscussionPrompt(application.id)}
               successDescription="请粘贴到 Codex 中开始讨论。"
+              onCheck={load}
             />
             {application.job_url ? (
               <a
@@ -686,6 +700,14 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
       />
       <div className="detail-grid">
         <div className="detail-main">
+          <div id="next-action">
+            <NextActionEditor
+              key={`${application.id}:${application.next_action.revision}`}
+              applicationId={application.id}
+              action={application.next_action}
+              onDone={load}
+            />
+          </div>
           <Panel className="workflow-card compact-workflow">
             <div className="section-heading">
               <div>
@@ -737,19 +759,21 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
               <div>
                 <span className="page-eyebrow">申请准备清单</span>
                 <h2>申请准备清单</h2>
-                <p>按顺序完成四步，确保最终投递材料可追溯。</p>
+                <p>完成三项材料准备，再到外部渠道投递；投递记录单独保存。</p>
               </div>
-              <strong>{completedPreparationSteps} / 4 步骤</strong>
+              <strong>{completedPreparationSteps} / 3 项准备</strong>
             </div>
             <div
-              aria-label={`申请准备进度：${completedPreparationSteps} / 4 步骤`}
-              aria-valuemax={4}
+              aria-label={`材料准备进度：${completedPreparationSteps} / 3 项`}
+              aria-valuemax={3}
               aria-valuemin={0}
               aria-valuenow={completedPreparationSteps}
               className="preparation-progress"
               role="progressbar"
             >
-              <span style={{ width: `${completedPreparationSteps * 25}%` }} />
+              <span
+                style={{ width: `${(completedPreparationSteps / 3) * 100}%` }}
+              />
             </div>
             <ol className="preparation-steps" aria-label="申请准备清单">
               <li
@@ -766,7 +790,11 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
                       <p>维护内容源，或让 AI 根据职位和候选人资料起草。</p>
                     </div>
                     <span className="step-state">
-                      {preparationStepState(0, hasSourceDocuments)}
+                      {hasSourceDocuments
+                        ? "基础检查通过"
+                        : preparation.hasSource
+                          ? "已创建 · 待修正"
+                          : "待创建"}
                     </span>
                   </div>
                   <div className="step-surface">
@@ -828,19 +856,20 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
                     <div className="source-start">
                       <div className="source-start-copy">
                         <span>快捷方式</span>
-                        <strong>让 AI 起草</strong>
+                        <strong>用 Codex 起草</strong>
                         <p>让 Codex 根据职位和候选人资料生成職務経歴書初稿。</p>
                       </div>
                       <div className="source-start-actions">
                         <AiPromptButton
-                          label="让 AI 起草"
+                          label="复制起草指令"
                           prompt={aiPrompt}
                           successDescription="请粘贴到 Codex 中开始起草。"
+                          onCheck={load}
                         />
                       </div>
                     </div>
                     <div className="step-footer-actions">
-                      <span>当前 Revision {draft.revision}</span>
+                      <span>当前版本 {draft.revision}</span>
                       <Button
                         disabled={busy === "discard"}
                         onClick={discardDraft}
@@ -869,7 +898,7 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
                       </p>
                     </div>
                     <span className="step-state">
-                      {preparationStepState(1, hasDeliverables)}
+                      {hasDeliverables ? "已上传 · 请核对文件" : "待上传"}
                     </span>
                   </div>
                   <div className="step-surface">
@@ -971,11 +1000,13 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
                 <div className="step-content">
                   <div className="step-heading">
                     <div>
-                      <h3>保存不可变材料包</h3>
-                      <p>保存当前材料快照，之后可用于精确投递记录。</p>
+                      <h3>确认并保存最终版本</h3>
+                      <p>
+                        核对上传文件后保存材料包。修改当前材料后，需要重新确认。
+                      </p>
                     </div>
                     <span className="step-state">
-                      {preparationStepState(2, hasMaterialPackage)}
+                      {hasMaterialPackage ? "当前版本已保存" : "待确认"}
                     </span>
                   </div>
                   <div className="step-surface">
@@ -992,7 +1023,11 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
                         />
                       </label>
                       <Button
-                        disabled={busy === "package"}
+                        disabled={
+                          busy === "package" ||
+                          !hasSourceDocuments ||
+                          !hasDeliverables
+                        }
                         onClick={lockPackage}
                         variant="secondary"
                       >
@@ -1001,7 +1036,7 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
                         ) : (
                           <LockKeyhole size={15} />
                         )}
-                        保存材料包
+                        确认并保存材料包
                       </Button>
                     </div>
                     <details
@@ -1021,7 +1056,7 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
                       </summary>
                       <div className="accordion-body">
                         <p className="field-hint">
-                          材料包是某个时刻的不可变快照。通常无需手动创建；记录投递时会自动保存。被投递记录引用后不可删除。
+                          材料包保留当时的文件；历史版本不会代表当前材料已确认。若先在外部完成投递，记录投递时也会自动保存材料包。已投递的版本永久保留。
                         </p>
                         {application.packages.length ? (
                           <div className="package-list">
@@ -1065,102 +1100,100 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
                   </div>
                 </div>
               </li>
-              <li
-                className={`preparation-step ${preparationStepClass(3, hasSubmissionRecord)}`}
-                id="preparation-submission"
-              >
-                <div className="step-marker" aria-hidden="true">
-                  {hasSubmissionRecord ? <Check size={14} /> : "4"}
-                </div>
-                <div className="step-content">
-                  <div className="step-heading">
-                    <div>
-                      <h3>记录已完成的外部投递</h3>
-                      <p>外部投递完成后，在这里留下可追溯记录。</p>
-                    </div>
-                    <span className="step-state">
-                      {preparationStepState(3, hasSubmissionRecord)}
-                    </span>
-                  </div>
-                  <div className="step-surface">
-                    <div className="submission-action-row">
-                      <p>
-                        系统不会发送文件。记录时会把当前材料自动保存为不可变材料包，并绑定本次事实。
-                      </p>
-                      <SubmissionDialog
-                        application={application}
-                        draft={draft}
-                        onDone={load}
-                      />
-                    </div>
-                    {application.submissions.length ? (
-                      <div className="submission-history">
-                        {application.submissions
-                          .slice()
-                          .reverse()
-                          .map((submission) => (
-                            <article
-                              className="submission-row"
-                              key={submission.id}
-                            >
-                              <div className="timeline-dot" />
-                              <div>
-                                <strong>
-                                  {formatDate(
-                                    submission.submitted_at ||
-                                      submission.recorded_at,
-                                    true,
-                                  )}
-                                </strong>
-                                <span>
-                                  {(
-                                    {
-                                      exact_files: "精确文件",
-                                      source_only: "仅材料来源",
-                                      status_only: "仅状态",
-                                    } as Record<string, string>
-                                  )[submission.evidence_level] ??
-                                    submission.evidence_level}{" "}
-                                  ·{" "}
-                                  {(
-                                    {
-                                      company_portal: "公司招聘页",
-                                      email: "邮件",
-                                      recruiting_agent: "猎头 / 中介",
-                                      linkedin: "LinkedIn",
-                                      other: "其他",
-                                    } as Record<string, string>
-                                  )[submission.channel] ?? submission.channel}
-                                </span>
-                                <p>
-                                  {submission.package_id ? (
-                                    <>
-                                      材料包{" "}
-                                      <code>{submission.package_id}</code>
-                                    </>
-                                  ) : (
-                                    "未绑定材料包"
-                                  )}
-                                  {submission.files.length
-                                    ? ` · ${submission.files.length} 个已保存文件`
-                                    : ""}
-                                </p>
-                                {submission.note ? (
-                                  <small>{submission.note}</small>
-                                ) : null}
-                              </div>
-                            </article>
-                          ))}
-                      </div>
-                    ) : (
-                      <div className="section-empty large-empty">
-                        还没有投递记录。完成外部投递后，在这里留下可追溯记录。
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </li>
             </ol>
+          </Panel>
+          <Panel className="workflow-card">
+            <div
+              className={`submission-record-section${hasSubmissionRecord ? " is-complete" : ""}`}
+              id="preparation-submission"
+            >
+              <div className="step-content">
+                <div className="step-heading">
+                  <div>
+                    <h3>记录已完成的外部投递</h3>
+                    <p>外部投递完成后，在这里留下可追溯记录。</p>
+                  </div>
+                  <span className="step-state">
+                    {hasSubmissionRecord ? "已有投递记录" : "尚未记录"}
+                  </span>
+                </div>
+                <div className="step-surface">
+                  <div className="submission-action-row">
+                    <p>
+                      系统不会发送文件。记录时会把当前材料自动保存为不可变材料包，并绑定本次事实。
+                    </p>
+                    <SubmissionDialog
+                      application={application}
+                      draft={draft}
+                      onDone={load}
+                    />
+                  </div>
+                  {application.submissions.length ? (
+                    <div className="submission-history">
+                      {application.submissions
+                        .slice()
+                        .reverse()
+                        .map((submission) => (
+                          <article
+                            className="submission-row"
+                            key={submission.id}
+                          >
+                            <div className="timeline-dot" />
+                            <div>
+                              <strong>
+                                {formatDate(
+                                  submission.submitted_at ||
+                                    submission.recorded_at,
+                                  true,
+                                )}
+                              </strong>
+                              <span>
+                                {(
+                                  {
+                                    exact_files: "精确文件",
+                                    source_only: "仅材料来源",
+                                    status_only: "仅状态",
+                                  } as Record<string, string>
+                                )[submission.evidence_level] ??
+                                  submission.evidence_level}{" "}
+                                ·{" "}
+                                {(
+                                  {
+                                    company_portal: "公司招聘页",
+                                    email: "邮件",
+                                    recruiting_agent: "猎头 / 中介",
+                                    linkedin: "LinkedIn",
+                                    other: "其他",
+                                  } as Record<string, string>
+                                )[submission.channel] ?? submission.channel}
+                              </span>
+                              <p>
+                                {submission.package_id ? (
+                                  <>
+                                    材料包 <code>{submission.package_id}</code>
+                                  </>
+                                ) : (
+                                  "未绑定材料包"
+                                )}
+                                {submission.files.length
+                                  ? ` · ${submission.files.length} 个已保存文件`
+                                  : ""}
+                              </p>
+                              {submission.note ? (
+                                <small>{submission.note}</small>
+                              ) : null}
+                            </div>
+                          </article>
+                        ))}
+                    </div>
+                  ) : (
+                    <div className="section-empty large-empty">
+                      还没有投递记录。完成外部投递后，在这里留下可追溯记录。
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           </Panel>
           <section
             aria-labelledby="application-delete-heading"
@@ -1332,6 +1365,11 @@ function eventLabel(
   if (type === "status.changed")
     return `阶段更新为 ${labels[String(data.status)] ?? String(data.status ?? "未知")}`;
   if (type === "application.created") return "创建申请记录";
+  if (type === "discovered-job.linked") return "关联已保存岗位";
+  if (type === "action.save") return "设置下一步行动";
+  if (type === "action.complete") return "完成待办";
+  if (type === "action.reopen") return "重新打开待办";
+  if (type === "action.clear") return "清除待办";
   if (type === "application.submitted") return "记录已投递";
   if (type === "draft.validated") return "更新材料检查结果";
   if (type === "draft.discarded") return "清空当前材料";

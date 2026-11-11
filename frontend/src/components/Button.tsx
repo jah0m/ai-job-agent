@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ComponentProps } from "react";
 
 type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 
@@ -9,16 +9,13 @@ export function Button({
   disabled,
   onClick,
   className = "",
+  ...props
 }: {
-  children: ReactNode;
   variant?: ButtonVariant;
-  type?: "button" | "submit" | "reset";
-  disabled?: boolean;
-  onClick?: () => void;
-  className?: string;
-}) {
+} & ComponentProps<"button">) {
   return (
     <button
+      {...props}
       className={`button button-${variant} ${className}`}
       disabled={disabled}
       onClick={onClick}

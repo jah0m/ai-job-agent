@@ -7,7 +7,6 @@ import {
   RefreshCw,
   RotateCcw,
   Search,
-  Sparkles,
   Star,
   X,
 } from "lucide-react";
@@ -21,6 +20,7 @@ import {
 } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { api, postUrlEncoded } from "../api";
+import { AiPromptButton } from "../components/AiPromptButton";
 import {
   Button,
   EmptyState,
@@ -310,7 +310,10 @@ function Analysis({ analysis }: { analysis: JobDetail["match_analysis"] }) {
 }
 
 function preventBackgroundScroll(event: React.WheelEvent<HTMLElement>) {
-  if (event.target instanceof Element && event.target.closest(".drawer-body")) {
+  if (
+    event.target instanceof Element &&
+    event.target.closest(".drawer-body, .dialog-content")
+  ) {
     return;
   }
   event.preventDefault();
@@ -346,44 +349,18 @@ function JobDrawer({
     "idle" | "dirty" | "saving" | "saved" | "error"
   >("idle");
   const [creating, setCreating] = useState(false);
-  const [analysisPromptCopied, setAnalysisPromptCopied] = useState(false);
-  const [refreshPromptCopied, setRefreshPromptCopied] = useState(false);
-  const copyResetTimerRef = useRef<number | null>(null);
-  const refreshCopyResetTimerRef = useRef<number | null>(null);
   const reviewRevisionRef = useRef(0);
   const isStatusLocked = status === "applied" || Boolean(job.application);
   const analysisPrompt = buildJobAnalysisPrompt(job);
   const refreshPrompt = buildJobRefreshPrompt(job);
 
   useEffect(() => {
-    if (copyResetTimerRef.current !== null) {
-      window.clearTimeout(copyResetTimerRef.current);
-      copyResetTimerRef.current = null;
-    }
-    setAnalysisPromptCopied(false);
-    if (refreshCopyResetTimerRef.current !== null) {
-      window.clearTimeout(refreshCopyResetTimerRef.current);
-      refreshCopyResetTimerRef.current = null;
-    }
-    setRefreshPromptCopied(false);
     reviewRevisionRef.current += 1;
     setReviewSaveState("idle");
     setStatus(job.status);
     setRating(job.rating ? String(job.rating) : "");
     setNotes(job.notes ?? "");
   }, [job]);
-
-  useEffect(
-    () => () => {
-      if (copyResetTimerRef.current !== null) {
-        window.clearTimeout(copyResetTimerRef.current);
-      }
-      if (refreshCopyResetTimerRef.current !== null) {
-        window.clearTimeout(refreshCopyResetTimerRef.current);
-      }
-    },
-    [],
-  );
 
   useEffect(() => {
     if (reviewSaveState !== "dirty") return;
@@ -421,48 +398,6 @@ function JobDrawer({
     reviewRevisionRef.current += 1;
     setNotes(value);
     setReviewSaveState("dirty");
-  };
-
-  const copyAnalysisPrompt = async () => {
-    try {
-      await navigator.clipboard.writeText(analysisPrompt);
-      setAnalysisPromptCopied(true);
-      showToast({
-        title: "Prompt 已复制",
-        description: "请粘贴到 Codex 中开始分析。",
-        tone: "success",
-      });
-      if (copyResetTimerRef.current !== null) {
-        window.clearTimeout(copyResetTimerRef.current);
-      }
-      copyResetTimerRef.current = window.setTimeout(() => {
-        setAnalysisPromptCopied(false);
-        copyResetTimerRef.current = null;
-      }, 2200);
-    } catch {
-      showToast({ title: "复制失败", description: "请检查浏览器剪贴板权限。" });
-    }
-  };
-
-  const copyRefreshPrompt = async () => {
-    try {
-      await navigator.clipboard.writeText(refreshPrompt);
-      setRefreshPromptCopied(true);
-      showToast({
-        title: "更新 Prompt 已复制",
-        description: "请粘贴到 Codex 中重新获取并更新这个岗位。",
-        tone: "success",
-      });
-      if (refreshCopyResetTimerRef.current !== null) {
-        window.clearTimeout(refreshCopyResetTimerRef.current);
-      }
-      refreshCopyResetTimerRef.current = window.setTimeout(() => {
-        setRefreshPromptCopied(false);
-        refreshCopyResetTimerRef.current = null;
-      }, 2200);
-    } catch {
-      showToast({ title: "复制失败", description: "请检查浏览器剪贴板权限。" });
-    }
   };
 
   const changeStatus = async (value: string) => {
@@ -519,14 +454,13 @@ function JobDrawer({
               {job.company || "未知公司"}
               <ExternalLink size={14} />
             </a>
-            <button
+            <AiPromptButton
               className="drawer-refresh-button"
-              onClick={() => void copyRefreshPrompt()}
-              type="button"
-            >
-              <RefreshCw size={13} />
-              {refreshPromptCopied ? "已复制" : "重新获取岗位信息"}
-            </button>
+              label="复制岗位更新指令"
+              prompt={refreshPrompt}
+              successDescription="请粘贴到 Codex 中重新获取并更新岗位。"
+              onCheck={onRefresh}
+            />
           </div>
         </div>
         <button
@@ -633,14 +567,13 @@ function JobDrawer({
               {job.match_analysis ? (
                 <Check className="success-icon" size={17} />
               ) : null}
-              <button
+              <AiPromptButton
                 className="analysis-copy-button"
-                onClick={() => void copyAnalysisPrompt()}
-                type="button"
-              >
-                <Sparkles size={14} />
-                {analysisPromptCopied ? "已复制" : "AI 分析"}
-              </button>
+                label="复制分析指令"
+                prompt={analysisPrompt}
+                successDescription="请粘贴到 Codex 中开始分析。"
+                onCheck={onRefresh}
+              />
             </div>
           </div>
           <div className="analysis-card">
@@ -851,8 +784,6 @@ export function DashboardPage({ session }: { session: Session }) {
   const pageScrollPositionRef = useRef<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [searchPromptCopied, setSearchPromptCopied] = useState(false);
-  const searchCopyResetTimerRef = useRef<number | null>(null);
   const q = params.get("q") ?? "";
   const [searchInput, setSearchInput] = useState(q);
   const portal = params.get("portal") ?? "";
@@ -905,36 +836,6 @@ export function DashboardPage({ session }: { session: Session }) {
     void load();
   }, [load]);
 
-  useEffect(
-    () => () => {
-      if (searchCopyResetTimerRef.current !== null) {
-        window.clearTimeout(searchCopyResetTimerRef.current);
-      }
-    },
-    [],
-  );
-
-  const copySearchPrompt = async () => {
-    try {
-      await navigator.clipboard.writeText(AI_PROMPTS.jobSearch);
-      setSearchPromptCopied(true);
-      showToast({
-        title: "Prompt 已复制",
-        description: "请粘贴到 Codex 中开始搜索。",
-        tone: "success",
-      });
-      if (searchCopyResetTimerRef.current !== null) {
-        window.clearTimeout(searchCopyResetTimerRef.current);
-      }
-      searchCopyResetTimerRef.current = window.setTimeout(() => {
-        setSearchPromptCopied(false);
-        searchCopyResetTimerRef.current = null;
-      }, 2200);
-    } catch {
-      showToast({ title: "复制失败", description: "请检查浏览器剪贴板权限。" });
-    }
-  };
-
   const updateParams = useCallback(
     (updates: Record<string, string>) => {
       const next = new URLSearchParams(params);
@@ -973,7 +874,12 @@ export function DashboardPage({ session }: { session: Session }) {
 
     const closeOnOutsidePointer = (event: PointerEvent) => {
       if (!(event.target instanceof Element)) return;
-      if (event.target.closest(".job-drawer, .jobs-table tbody tr")) return;
+      if (
+        event.target.closest(
+          ".job-drawer, .jobs-table tbody tr, .dialog-content, .dialog-overlay",
+        )
+      )
+        return;
       closeDrawer();
     };
 
@@ -1005,10 +911,12 @@ export function DashboardPage({ session }: { session: Session }) {
         title="岗位"
         actions={
           <>
-            <Button onClick={() => void copySearchPrompt()}>
-              <Sparkles size={16} />
-              {searchPromptCopied ? "已复制" : "AI 搜索岗位"}
-            </Button>
+            <AiPromptButton
+              label="复制岗位搜索指令"
+              prompt={AI_PROMPTS.jobSearch}
+              successDescription="请粘贴到 Codex 中开始搜索。"
+              onCheck={load}
+            />
             <Button onClick={() => void load()} variant="secondary">
               <RefreshCw className={refreshing ? "spin" : ""} size={16} />
               刷新岗位

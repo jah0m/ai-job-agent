@@ -58,6 +58,12 @@ def build_parser() -> argparse.ArgumentParser:
     application_commands.add_parser("list", help="List applications")
     show = application_commands.add_parser("show", help="Show one application")
     show.add_argument("application_id")
+    action = application_commands.add_parser("action", help="Set or complete the next action")
+    action.add_argument("application_id")
+    action.add_argument("--operation", choices=["save", "complete", "reopen", "clear"], default="save")
+    action.add_argument("--title", default="")
+    action.add_argument("--due-date")
+    action.add_argument("--expected-revision", type=int, required=True)
 
     apply_command = commands.add_parser(
         "apply", help="Create an application record (Codex-friendly alias)"
@@ -234,6 +240,11 @@ def run(args: argparse.Namespace) -> Any:
     if args.command == "application":
         if args.application_command == "list":
             return workspace.list_applications()
+        if args.application_command == "action":
+            return workspace.update_next_action(
+                args.application_id, operation=args.operation, title=args.title,
+                due_date=args.due_date, expected_revision=args.expected_revision,
+            )
         return workspace.show_application(args.application_id)
     if args.command == "job":
         if args.job_command == "evidence":

@@ -14,12 +14,17 @@ export function AppShell({
 }) {
   return (
     <ToastProvider>
+      <a className="skip-link" href="#main-content">
+        跳到主要内容
+      </a>
       <div className="app-shell">
         <Sidebar session={session} />
         <MobileNavigation />
         <div className="main-shell">
           <GlobalHeader />
-          <main className="page-content">{children}</main>
+          <main className="page-content" id="main-content" tabIndex={-1}>
+            {children}
+          </main>
         </div>
       </div>
     </ToastProvider>
