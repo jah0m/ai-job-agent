@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { postUrlEncoded } from "../api";
+import { useI18n } from "../i18n";
 import type { NextAction } from "../types";
 import { Button, Panel, useToast } from "./Layout";
 
@@ -16,15 +17,13 @@ export function NextActionEditor({
   const [dueDate, setDueDate] = useState(action.due_date ?? "");
   const [busy, setBusy] = useState(false);
   const { showToast } = useToast();
+  const { t } = useI18n();
+  const m = t.workflow.nextAction;
   const changed = title !== action.title || dueDate !== (action.due_date ?? "");
   const update = async (operation: string) => {
     if (
       operation === "clear" &&
-      !window.confirm(
-        changed
-          ? "清除当前待办？未保存的修改也会丢失。"
-          : "清除当前待办？变更会保留在活动记录中。",
-      )
+      !window.confirm(changed ? m.confirmClearDirty : m.confirmClear)
     )
       return;
     setBusy(true);
@@ -39,11 +38,12 @@ export function NextActionEditor({
         },
       );
       await onDone();
-      showToast({ title: "待办已更新", tone: "success" });
+      showToast({ title: m.updated, tone: "success" });
     } catch (error) {
       showToast({
-        title: "待办更新失败",
-        description: error instanceof Error ? error.message : "请重试",
+        title: m.updateFailed,
+        description:
+          error instanceof Error ? error.message : t.common.pleaseRetry,
       });
       // Re-read so a stale revision cannot keep failing; the parent remounts
       // this editor only when the stored action actually changed.
@@ -56,16 +56,14 @@ export function NextActionEditor({
     <Panel className="workflow-card next-action-card">
       <div className="section-heading">
         <div>
-          <span className="page-eyebrow">下一步行动</span>
-          <h2>接下来要做什么？</h2>
+          <span className="page-eyebrow">{m.eyebrow}</span>
+          <h2>{m.heading}</h2>
         </div>
         {action.completed_at ? (
-          <span className="action-completed">已完成</span>
+          <span className="action-completed">{m.completed}</span>
         ) : null}
       </div>
-      <p className="field-hint">
-        设置一个具体行动；到期日可选，按本机日期在首页归类。
-      </p>
+      <p className="field-hint">{m.intro}</p>
       <form
         onSubmit={(event) => {
           event.preventDefault();
@@ -74,17 +72,17 @@ export function NextActionEditor({
       >
         <fieldset disabled={busy} className="next-action-fields">
           <label className="field-label">
-            <span>行动内容</span>
+            <span>{m.titleLabel}</span>
             <input
               required
               maxLength={240}
               value={title}
               onChange={(event) => setTitle(event.target.value)}
-              placeholder="例如：联系中介确认面试时间"
+              placeholder={m.titlePlaceholder}
             />
           </label>
           <label className="field-label">
-            <span>到期日（可选）</span>
+            <span>{m.dueLabel}</span>
             <input
               type="date"
               value={dueDate}
@@ -94,10 +92,10 @@ export function NextActionEditor({
           <div className="next-action-buttons">
             <Button type="submit" disabled={!title.trim()}>
               {busy
-                ? "保存中…"
+                ? t.common.saving
                 : action.completed_at
-                  ? "保存为新待办"
-                  : "保存待办"}
+                  ? m.saveAsNew
+                  : m.save}
             </Button>
             {action.title ? (
               <>
@@ -109,23 +107,21 @@ export function NextActionEditor({
                     void update(action.completed_at ? "reopen" : "complete")
                   }
                 >
-                  {action.completed_at ? "重新打开" : "标记完成"}
+                  {action.completed_at ? m.reopen : m.complete}
                 </Button>
                 <Button
                   type="button"
                   variant="ghost"
                   onClick={() => void update("clear")}
                 >
-                  清除待办
+                  {m.clear}
                 </Button>
               </>
             ) : null}
           </div>
         </fieldset>
       </form>
-      <p className="field-hint">
-        延期请修改到期日后保存。完成待办不会改变申请阶段；变更会保留在活动记录中。
-      </p>
+      <p className="field-hint">{m.footer}</p>
     </Panel>
   );
 }

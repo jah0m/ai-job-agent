@@ -18,9 +18,12 @@ import {
   useToast,
 } from "../components/Layout";
 import { formatDate } from "../format";
+import { currentMessages, useI18n } from "../i18n";
 import type { DocumentPreview, MarkdownBlock } from "../types";
 
 const SHOKUMU_DOCUMENT_PATH = "shokumu-keirekisho.md";
+// Sentinel error for a path the online preview/editor does not support.
+const UNSUPPORTED_PATH = "\u0000unsupported";
 
 function encodedPath(path: string) {
   return path.split("/").map(encodeURIComponent).join("/");
@@ -83,13 +86,15 @@ function documentDownload(
 
 export function DocumentPreviewPage() {
   const { applicationId, packageId, "*": wildcard } = useParams();
+  const { t } = useI18n();
+  const m = t.document;
   const [data, setData] = useState<DocumentPreview | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     if (!applicationId || !wildcard) return;
     if (!packageId && wildcard !== SHOKUMU_DOCUMENT_PATH) {
       setData(null);
-      setError("在线申请文档仅支持 shokumu-keirekisho.md");
+      setError(UNSUPPORTED_PATH);
       return;
     }
     setData(null);
@@ -102,11 +107,11 @@ export function DocumentPreviewPage() {
       .then(setData)
       .catch((requestError) => {
         const message =
-          requestError instanceof Error ? requestError.message : "请稍后重试";
+          requestError instanceof Error ? requestError.message : "";
         setError(message);
       });
   }, [applicationId, packageId, wildcard]);
-  if (error && applicationId)
+  if (error !== null && applicationId)
     return (
       <EmptyState
         action={
@@ -114,18 +119,22 @@ export function DocumentPreviewPage() {
             className="button button-secondary"
             to={`/applications/${encodeURIComponent(applicationId)}`}
           >
-            返回申请
+            {m.backToApplication}
           </Link>
         }
-        description={error}
-        title="无法读取这份文档"
+        description={
+          error === UNSUPPORTED_PATH
+            ? m.previewOnly
+            : error || t.common.pleaseRetryLater
+        }
+        title={m.cannotRead}
       />
     );
   if (!data)
     return (
       <div className="loading-screen">
         <LoaderCircle className="spin" size={26} />
-        <span>正在读取文档…</span>
+        <span>{m.loading}</span>
       </div>
     );
   const isWorkHistory = data.relative_path === SHOKUMU_DOCUMENT_PATH;
@@ -142,7 +151,7 @@ export function DocumentPreviewPage() {
               href={documentDownload(data, packageId)}
             >
               <Download size={15} />
-              下载職務経歴書 Markdown
+              {m.downloadMarkdown}
             </a>
             {data.is_draft ? (
               <Link
@@ -150,7 +159,7 @@ export function DocumentPreviewPage() {
                 to={`/applications/${encodeURIComponent(data.application.id)}/draft/edit/${encodedPath(data.relative_path)}`}
               >
                 <Pencil size={15} />
-                编辑職務経歴書草稿
+                {m.editDraft}
               </Link>
             ) : null}
           </>
@@ -159,36 +168,33 @@ export function DocumentPreviewPage() {
       <div className="document-meta-row">
         <span>
           {data.is_draft
-            ? `当前材料 · Revision ${data.draft?.revision ?? "—"}`
-            : `${data.package?.label || "材料包"} · ${formatDate(data.package?.created_at, true)}`}
+            ? m.currentRevision(data.draft?.revision ?? "—")
+            : `${data.package?.label || m.packageFallback} · ${formatDate(data.package?.created_at, true)}`}
         </span>
         <Link to={`/applications/${encodeURIComponent(data.application.id)}`}>
           <ArrowLeft size={15} />
-          返回申请
+          {m.backToApplication}
         </Link>
       </div>
       {isWorkHistory ? (
         <div className="converter-note">
           <div>
-            <strong>需要导出 PDF？</strong>
-            <p>
-              下载 Markdown 后，可使用 Markdown Resume Studio 调整版式并导出
-              PDF。
-            </p>
+            <strong>{m.needPdf}</strong>
+            <p>{m.pdfHint}</p>
           </div>
           <a
             href="https://md-resume.jahom.dev/"
             rel="noreferrer"
             target="_blank"
           >
-            打开 Markdown Resume Studio <ExternalLink size={14} />
+            {m.openStudio} <ExternalLink size={14} />
           </a>
         </div>
       ) : null}
       <Panel className="document-paper">
         <article
           className="document-content"
-          aria-label={`${data.document_title}预览`}
+          aria-label={m.previewLabel(data.document_title)}
         >
           {data.blocks.map((block) => (
             <Block block={block} key={JSON.stringify(block)} />
@@ -203,6 +209,8 @@ export function DocumentEditPage() {
   const { applicationId, "*": wildcard } = useParams();
   const navigate = useNavigate();
   const { showToast } = useToast();
+  const { t } = useI18n();
+  const m = t.document;
   const [data, setData] = useState<DocumentPreview | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [content, setContent] = useState("");
@@ -212,7 +220,7 @@ export function DocumentEditPage() {
     if (!applicationId || !wildcard) return;
     if (wildcard !== SHOKUMU_DOCUMENT_PATH) {
       setData(null);
-      setError("在线编辑仅支持 shokumu-keirekisho.md");
+      setError(UNSUPPORTED_PATH);
       return;
     }
     setData(null);
@@ -222,15 +230,18 @@ export function DocumentEditPage() {
       .then((result) => {
         setData(result);
         setContent(result.content);
-        setLabel(result.draft?.label || `在线编辑 · ${result.document_title}`);
+        setLabel(
+          result.draft?.label ||
+            currentMessages().document.defaultLabel(result.document_title),
+        );
       })
       .catch((requestError) => {
         const message =
-          requestError instanceof Error ? requestError.message : "请稍后重试";
+          requestError instanceof Error ? requestError.message : "";
         setError(message);
       });
   }, [applicationId, wildcard]);
-  if (error && applicationId)
+  if (error !== null && applicationId)
     return (
       <EmptyState
         action={
@@ -238,18 +249,22 @@ export function DocumentEditPage() {
             className="button button-secondary"
             to={`/applications/${encodeURIComponent(applicationId)}`}
           >
-            返回申请
+            {m.backToApplication}
           </Link>
         }
-        description={error}
-        title="无法准备编辑器"
+        description={
+          error === UNSUPPORTED_PATH
+            ? m.editOnly
+            : error || t.common.pleaseRetryLater
+        }
+        title={m.cannotPrepare}
       />
     );
   if (!data || !applicationId)
     return (
       <div className="loading-screen">
         <LoaderCircle className="spin" size={26} />
-        <span>正在准备编辑器…</span>
+        <span>{m.preparing}</span>
       </div>
     );
   const save = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -263,8 +278,9 @@ export function DocumentEditPage() {
       navigate(`/applications/${encodeURIComponent(applicationId)}`);
     } catch (error) {
       showToast({
-        title: "保存失败",
-        description: error instanceof Error ? error.message : "请稍后重试",
+        title: m.saveFailed,
+        description:
+          error instanceof Error ? error.message : t.common.pleaseRetryLater,
       });
     } finally {
       setSaving(false);
@@ -274,26 +290,24 @@ export function DocumentEditPage() {
     <div className="document-edit-page">
       <PageIntro
         description={`${data.application.company} · ${data.application.role}`}
-        title={`编辑工作草稿 · ${data.document_title}`}
+        title={m.editTitle(data.document_title)}
         actions={
           <Link
             className="button button-secondary"
             to={`/applications/${encodeURIComponent(applicationId)}`}
           >
-            取消
+            {t.common.cancel}
           </Link>
         }
       />
       <div className="editor-note">
-        <strong>这里只保存当前材料</strong>
-        <span>
-          保存不会覆盖既有材料包，也不会向雇主发送文件；记录投递时系统会自动保存不可变快照。
-        </span>
+        <strong>{m.editorNoteTitle}</strong>
+        <span>{m.editorNote}</span>
       </div>
       <Panel className="markdown-editor">
         <form className="stack-form" onSubmit={save}>
           <label className="field-label">
-            <span>草稿标签</span>
+            <span>{m.draftLabel}</span>
             <input
               maxLength={120}
               onChange={(event) => setLabel(event.target.value)}
@@ -301,7 +315,7 @@ export function DocumentEditPage() {
             />
           </label>
           <label className="field-label editor-content-field">
-            <span>Markdown 内容</span>
+            <span>{m.markdownContent}</span>
             <textarea
               onChange={(event) => setContent(event.target.value)}
               required
@@ -314,7 +328,7 @@ export function DocumentEditPage() {
               className="button button-secondary"
               to={`/applications/${encodeURIComponent(applicationId)}`}
             >
-              取消
+              {t.common.cancel}
             </Link>
             <Button disabled={saving} type="submit">
               {saving ? (
@@ -322,7 +336,7 @@ export function DocumentEditPage() {
               ) : (
                 <Save size={15} />
               )}
-              保存到工作草稿
+              {m.saveToDraft}
             </Button>
           </div>
         </form>

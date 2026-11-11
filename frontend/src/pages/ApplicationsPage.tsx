@@ -9,7 +9,8 @@ import {
   StatusBadge,
   useToast,
 } from "../components/Layout";
-import { formatDate } from "../format";
+import { formatDate, labelFor } from "../format";
+import { useI18n } from "../i18n";
 import { preparationState } from "../preparation";
 import type {
   Application,
@@ -37,6 +38,8 @@ function ApplicationCard({
   selected: boolean;
   onSelect: () => void;
 }) {
+  const { t } = useI18n();
+  const m = t.applications;
   return (
     <article
       className={`kanban-card${selected ? " is-selected" : ""}`}
@@ -44,7 +47,7 @@ function ApplicationCard({
       onDragStart={(event) => event.dataTransfer.setData("text/plain", item.id)}
     >
       <button
-        aria-label={`${item.company} ${item.role}，选择以查看申请状态`}
+        aria-label={m.selectCard(item.company, item.role)}
         aria-pressed={selected}
         className="kanban-card-select"
         onClick={onSelect}
@@ -53,7 +56,11 @@ function ApplicationCard({
         <div className="kanban-card-top">
           <GripVertical aria-hidden="true" className="drag-handle" size={16} />
           <StatusBadge
-            label={labels[item.status] ?? item.status}
+            label={labelFor(
+              t.common.applicationStatus,
+              item.status,
+              labels[item.status],
+            )}
             tone={applicationTone(item.status)}
           />
         </div>
@@ -62,7 +69,7 @@ function ApplicationCard({
           <p>{item.company}</p>
           {item.next_action.title && !item.next_action.completed_at ? (
             <p className="kanban-next-action">
-              下一步：{item.next_action.title}
+              {m.nextAction(item.next_action.title)}
               {item.next_action.due_date
                 ? ` · ${item.next_action.due_date}`
                 : ""}
@@ -73,7 +80,7 @@ function ApplicationCard({
       <div className="kanban-card-footer">
         <time>{formatDate(item.updated_at)}</time>
         <Link
-          aria-label={`查看 ${item.role} 详情`}
+          aria-label={m.viewDetails(item.role)}
           className="kanban-card-detail-link"
           to={`/applications/${item.id}`}
         >
@@ -96,6 +103,7 @@ function CompletionState({
   label: string;
   complete: boolean;
 }) {
+  const { t } = useI18n();
   return (
     <li
       className={`inspector-completion-item${complete ? " is-complete" : ""}`}
@@ -104,7 +112,7 @@ function CompletionState({
         {complete ? <Check size={12} /> : null}
       </span>
       <span>{label}</span>
-      <strong>{complete ? "已完成" : "待完成"}</strong>
+      <strong>{complete ? t.applications.done : t.applications.todo}</strong>
     </li>
   );
 }
@@ -122,6 +130,8 @@ function ApplicationInspector({
   labels: Session["application_labels"];
   onClose: () => void;
 }) {
+  const { t } = useI18n();
+  const m = t.applications;
   const preparation = detail
     ? preparationState(detail.application, detail.draft)
     : null;
@@ -135,17 +145,17 @@ function ApplicationInspector({
 
   return (
     <aside
-      aria-label="申请状态侧栏"
+      aria-label={m.inspectorLabel}
       className="application-inspector"
       aria-labelledby="application-inspector-title"
     >
       <div className="inspector-heading">
         <div>
-          <span className="page-eyebrow">申请状态</span>
-          <h2 id="application-inspector-title">当前申请</h2>
+          <span className="page-eyebrow">{m.inspectorEyebrow}</span>
+          <h2 id="application-inspector-title">{m.inspectorTitle}</h2>
         </div>
         <button
-          aria-label="关闭申请状态侧栏"
+          aria-label={m.closeInspector}
           className="icon-button"
           onClick={onClose}
           type="button"
@@ -159,21 +169,25 @@ function ApplicationInspector({
       </div>
       <div className="inspector-meta">
         <div>
-          <span>当前阶段</span>
+          <span>{m.currentStage}</span>
           <StatusBadge
-            label={labels[item.status] ?? item.status}
+            label={labelFor(
+              t.common.applicationStatus,
+              item.status,
+              labels[item.status],
+            )}
             tone={applicationTone(item.status)}
           />
         </div>
         <div>
-          <span>最后更新</span>
+          <span>{m.lastUpdated}</span>
           <time>{formatDate(item.updated_at, true)}</time>
         </div>
       </div>
       <div className="inspector-progress" aria-live="polite">
         <div className="inspector-progress-heading">
-          <span>材料完成度</span>
-          <strong>{loading ? "读取中" : `${completedCount} / 3`}</strong>
+          <span>{m.materialsProgress}</span>
+          <strong>{loading ? m.loadingShort : `${completedCount} / 3`}</strong>
         </div>
         <div className="inspector-progress-track" aria-hidden="true">
           <span
@@ -181,30 +195,31 @@ function ApplicationInspector({
           />
         </div>
       </div>
-      <ul className="inspector-completion-list" aria-label="申请准备状态">
-        <CompletionState label="职务经历书基础检查" complete={hasDocuments} />
-        <CompletionState label="最终文件已上传" complete={hasDeliverables} />
-        <CompletionState label="当前版本材料包" complete={hasPackage} />
+      <ul className="inspector-completion-list" aria-label={m.readinessLabel}>
+        <CompletionState label={m.sourceChecked} complete={hasDocuments} />
+        <CompletionState
+          label={m.deliverablesUploaded}
+          complete={hasDeliverables}
+        />
+        <CompletionState label={m.currentPackage} complete={hasPackage} />
       </ul>
-      <p className="inspector-note">
-        投递记录：{hasSubmission ? "已有记录" : "尚未记录"}（不计入材料完成度）
-      </p>
+      <p className="inspector-note">{m.submission(hasSubmission)}</p>
       <Link
         className="button button-secondary inspector-detail-link"
         to={`/applications/${item.id}`}
       >
-        查看申请详情
+        {m.openDetail}
         <ArrowRight aria-hidden="true" size={15} />
       </Link>
-      <p className="inspector-note">
-        状态信息仅供查看，具体操作请进入申请详情。
-      </p>
+      <p className="inspector-note">{m.inspectorNote}</p>
     </aside>
   );
 }
 
 export function ApplicationsPage({ session }: { session: Session }) {
   const { showToast } = useToast();
+  const { t } = useI18n();
+  const m = t.applications;
   const [data, setData] = useState<ApplicationsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null | undefined>(
@@ -218,13 +233,14 @@ export function ApplicationsPage({ session }: { session: Session }) {
       setData(await api.applications());
     } catch (error) {
       showToast({
-        title: "申请加载失败",
-        description: error instanceof Error ? error.message : "请稍后重试",
+        title: m.loadFailed,
+        description:
+          error instanceof Error ? error.message : t.common.pleaseRetryLater,
       });
     } finally {
       setLoading(false);
     }
-  }, [showToast]);
+  }, [showToast, m, t]);
   useEffect(() => {
     void load();
   }, [load]);
@@ -264,8 +280,11 @@ export function ApplicationsPage({ session }: { session: Session }) {
       .catch((error: unknown) => {
         if (!cancelled) {
           showToast({
-            title: "申请状态加载失败",
-            description: error instanceof Error ? error.message : "请稍后重试",
+            title: t.applications.statusLoadFailed,
+            description:
+              error instanceof Error
+                ? error.message
+                : t.common.pleaseRetryLater,
           });
         }
       })
@@ -275,12 +294,12 @@ export function ApplicationsPage({ session }: { session: Session }) {
     return () => {
       cancelled = true;
     };
-  }, [selectedId, showToast]);
+  }, [selectedId, showToast, t]);
 
   const move = async (id: string, status: string) => {
     const target = data?.columns.find((column) => column.status === status);
     if (!target?.manual) {
-      showToast({ title: "这个阶段由投递记录自动进入" });
+      showToast({ title: m.automaticStage });
       return;
     }
     try {
@@ -291,8 +310,9 @@ export function ApplicationsPage({ session }: { session: Session }) {
       await load();
     } catch (error) {
       showToast({
-        title: "阶段更新失败",
-        description: error instanceof Error ? error.message : "请稍后重试",
+        title: m.moveFailed,
+        description:
+          error instanceof Error ? error.message : t.common.pleaseRetryLater,
       });
     }
   };
@@ -301,19 +321,19 @@ export function ApplicationsPage({ session }: { session: Session }) {
     return (
       <div className="loading-screen">
         <LoaderCircle className="spin" size={26} />
-        <span>正在读取申请记录…</span>
+        <span>{m.loading}</span>
       </div>
     );
   if (!data?.applications.length)
     return (
       <div className="applications-page">
         <PageIntro
-          description="从岗位详情创建申请后，会在这里集中管理阶段。"
-          title="申请"
+          description={m.emptyIntro}
+          title={m.title}
           actions={
             <Link className="button button-primary" to="/?status=saved">
               <ArrowRight aria-hidden="true" size={16} />
-              从已保存岗位开始申请
+              {m.startFromSaved}
             </Link>
           }
         />
@@ -321,11 +341,11 @@ export function ApplicationsPage({ session }: { session: Session }) {
           <EmptyState
             action={
               <Link className="button button-primary" to="/?status=saved">
-                从已保存岗位开始申请
+                {m.startFromSaved}
               </Link>
             }
-            description="在岗位详情中点击“创建申请记录”，申请会进入这里。"
-            title="尚无申请记录"
+            description={m.emptyHint}
+            title={m.emptyTitle}
           />
         </Panel>
       </div>
@@ -338,65 +358,72 @@ export function ApplicationsPage({ session }: { session: Session }) {
   return (
     <div className="applications-page">
       <PageIntro
-        description={`${data.applications.length} 个申请 · “已投递”由投递记录自动进入`}
-        title="申请"
+        description={m.count(data.applications.length)}
+        title={m.title}
         actions={
           <Link className="button button-primary" to="/?status=saved">
             <ArrowRight aria-hidden="true" size={16} />
-            从已保存岗位开始申请
+            {m.startFromSaved}
           </Link>
         }
       />
       <div className="applications-layout">
         <div className="applications-board-column">
-          <section className="kanban-board" aria-label="申请阶段">
-            {data.columns.map((column) => (
-              <section
-                className={`kanban-column column-${column.status}`}
-                key={column.status}
-                aria-label={`${column.label}申请`}
-                onDragOver={(event) => column.manual && event.preventDefault()}
-                onDrop={(event) => {
-                  event.preventDefault();
-                  const id = event.dataTransfer.getData("text/plain");
-                  if (id) void move(id, column.status);
-                }}
-              >
-                <header>
-                  <div>
-                    <h2>{column.label}</h2>
-                    <span>
-                      {column.manual ? "可手动移动" : "由投递记录进入"}
-                    </span>
+          <section className="kanban-board" aria-label={m.boardLabel}>
+            {data.columns.map((column) => {
+              const columnLabel = labelFor(
+                t.common.applicationStatus,
+                column.status,
+                column.label,
+              );
+              return (
+                <section
+                  className={`kanban-column column-${column.status}`}
+                  key={column.status}
+                  aria-label={m.columnLabel(columnLabel)}
+                  onDragOver={(event) =>
+                    column.manual && event.preventDefault()
+                  }
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    const id = event.dataTransfer.getData("text/plain");
+                    if (id) void move(id, column.status);
+                  }}
+                >
+                  <header>
+                    <div>
+                      <h2>{columnLabel}</h2>
+                      <span>{column.manual ? m.manual : m.automatic}</span>
+                    </div>
+                    <strong>{column.items.length}</strong>
+                  </header>
+                  <div className="kanban-stack">
+                    {column.items.length ? (
+                      column.items.map((item) => (
+                        <ApplicationCard
+                          item={item}
+                          key={item.id}
+                          labels={session.application_labels}
+                          onSelect={() => setSelectedId(item.id)}
+                          selected={selectedId === item.id}
+                        />
+                      ))
+                    ) : (
+                      <div className="kanban-empty">{m.noItems}</div>
+                    )}
                   </div>
-                  <strong>{column.items.length}</strong>
-                </header>
-                <div className="kanban-stack">
-                  {column.items.length ? (
-                    column.items.map((item) => (
-                      <ApplicationCard
-                        item={item}
-                        key={item.id}
-                        labels={session.application_labels}
-                        onSelect={() => setSelectedId(item.id)}
-                        selected={selectedId === item.id}
-                      />
-                    ))
-                  ) : (
-                    <div className="kanban-empty">暂无申请</div>
-                  )}
-                </div>
-              </section>
-            ))}
+                </section>
+              );
+            })}
           </section>
           {data.archived.length ? (
             <Panel className="archived-panel">
               <div className="section-heading">
                 <div>
-                  <h2>已结束</h2>
-                  <p>已拒绝、已撤回或已关闭的申请</p>
+                  <h2>{m.archivedTitle}</h2>
+                  <p>{m.archivedHint}</p>
                 </div>
-                <strong>{data.archived.length} 个</strong>
+                <strong>{m.archivedCount(data.archived.length)}</strong>
               </div>
               <div className="archived-list">
                 {data.archived.map((item) => (
@@ -410,9 +437,11 @@ export function ApplicationsPage({ session }: { session: Session }) {
                       <small>{item.company}</small>
                     </span>
                     <StatusBadge
-                      label={
-                        session.application_labels[item.status] ?? item.status
-                      }
+                      label={labelFor(
+                        t.common.applicationStatus,
+                        item.status,
+                        session.application_labels[item.status],
+                      )}
                       tone="neutral"
                     />
                   </Link>

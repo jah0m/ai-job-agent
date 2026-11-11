@@ -1,10 +1,12 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { Menu, X } from "lucide-react";
 import { useState } from "react";
+import { useI18n } from "../i18n";
 import { Navigation } from "./Navigation";
 
 export function MobileNavigation() {
   const [open, setOpen] = useState(false);
+  const { t } = useI18n();
 
   return (
     <Dialog.Root onOpenChange={setOpen} open={open}>
@@ -12,7 +14,7 @@ export function MobileNavigation() {
         <button
           className="mobile-menu-button icon-button"
           type="button"
-          aria-label="打开导航"
+          aria-label={t.shell.nav.open}
         >
           <Menu size={20} />
         </button>
@@ -29,7 +31,7 @@ export function MobileNavigation() {
               <button
                 className="icon-button"
                 type="button"
-                aria-label="关闭导航"
+                aria-label={t.shell.nav.close}
               >
                 <X size={20} />
               </button>
@@ -39,8 +41,8 @@ export function MobileNavigation() {
           <div className="local-status">
             <span className="status-dot" />
             <div>
-              <strong>本地优先</strong>
-              <span>数据仅保存在本机</span>
+              <strong>{t.shell.localFirst}</strong>
+              <span>{t.shell.localOnly}</span>
             </div>
           </div>
         </Dialog.Content>

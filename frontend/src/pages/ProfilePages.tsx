@@ -11,8 +11,9 @@ import {
   StatusBadge,
   useToast,
 } from "../components/Layout";
-import { joinLines, stringValue } from "../format";
-import { AI_PROMPTS } from "../prompts";
+import { joinLines, labelFor, stringValue } from "../format";
+import { currentMessages, useI18n } from "../i18n";
+import { aiPrompts } from "../prompts";
 import type { Candidate, Preferences, ProfileResponse } from "../types";
 
 type Experience = {
@@ -54,6 +55,8 @@ function completionTone(value: number): string {
 
 export function ProfilePage() {
   const { showToast } = useToast();
+  const { t } = useI18n();
+  const m = t.profile;
   const navigate = useNavigate();
   const [data, setData] = useState<ProfileResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -62,13 +65,14 @@ export function ProfilePage() {
       setData(await api.profile());
     } catch (error) {
       showToast({
-        title: "个人履历加载失败",
-        description: error instanceof Error ? error.message : "请稍后重试",
+        title: m.loadFailed,
+        description:
+          error instanceof Error ? error.message : t.common.pleaseRetryLater,
       });
     } finally {
       setLoading(false);
     }
-  }, [showToast]);
+  }, [showToast, m, t]);
   useEffect(() => {
     void load();
   }, [load]);
@@ -76,15 +80,15 @@ export function ProfilePage() {
     return (
       <div className="loading-screen">
         <LoaderCircle className="spin" size={26} />
-        <span>正在读取个人履历…</span>
+        <span>{m.loading}</span>
       </div>
     );
   if (!data)
     return (
       <EmptyState
-        description="请确认本地服务正在运行。"
-        title="暂时无法读取个人履历"
-        action={<Button onClick={() => void load()}>重试</Button>}
+        description={m.checkService}
+        title={m.unavailable}
+        action={<Button onClick={() => void load()}>{t.common.retry}</Button>}
       />
     );
   const candidate = data.candidate;
@@ -96,18 +100,18 @@ export function ProfilePage() {
   return (
     <div className="profile-page">
       <PageIntro
-        description="用于生成材料与辅助岗位匹配的本机私有资料"
-        title="个人履历"
+        description={m.description}
+        title={m.title}
         actions={
           <>
             <AiPromptButton
-              label="复制履历完善指令"
-              prompt={AI_PROMPTS.profile}
-              successDescription="请粘贴到 Codex 中开始生成。"
+              label={m.copyPrompt}
+              prompt={aiPrompts().profile}
+              successDescription={m.promptHint}
             />
             <Button onClick={() => navigate("/profile/edit")}>
               <UserRound size={15} />
-              编辑个人履历
+              {m.edit}
             </Button>
           </>
         }
@@ -127,22 +131,22 @@ export function ProfilePage() {
               </span>
             </div>
             <div>
-              <span className="page-eyebrow">候选人</span>
+              <span className="page-eyebrow">{m.candidate}</span>
               <h2>
                 {value(identity, "name_en") ||
                   value(identity, "name_ja") ||
-                  "尚未填写姓名"}
+                  m.noName}
               </h2>
               <p>
-                {value(identity, "current_title") || "尚未填写当前职位"}
+                {value(identity, "current_title") || m.noTitle}
                 {value(identity, "current_employer")
                   ? ` · ${value(identity, "current_employer")}`
                   : ""}
               </p>
               <div className="profile-meta">
-                <span>{value(identity, "location") || "所在地未填写"}</span>
+                <span>{value(identity, "location") || m.noLocation}</span>
                 <span>
-                  {value(identity, "employment_status") || "就业状态未填写"}
+                  {value(identity, "employment_status") || m.noEmploymentStatus}
                 </span>
               </div>
             </div>
@@ -150,21 +154,21 @@ export function ProfilePage() {
           <Panel className="profile-section">
             <div className="section-heading">
               <div>
-                <h2>个人简介</h2>
-                <p>一句话说明你的方向和优势。</p>
+                <h2>{m.summary}</h2>
+                <p>{m.summaryHint}</p>
               </div>
             </div>
             <p className="profile-summary">
-              {candidate.summary || "尚未记录个人简介。"}
+              {candidate.summary || m.noSummary}
             </p>
           </Panel>
           <Panel className="profile-section">
             <div className="section-heading">
               <div>
-                <h2>工作经历</h2>
-                <p>基于事实的经历会用于起草申请材料。</p>
+                <h2>{m.experience}</h2>
+                <p>{m.experienceHint}</p>
               </div>
-              <strong>{candidate.experience?.length ?? 0} 段</strong>
+              <strong>{m.entries(candidate.experience?.length ?? 0)}</strong>
             </div>
             {candidate.experience?.length ? (
               <div className="experience-list">
@@ -180,10 +184,10 @@ export function ProfilePage() {
                           <h3>
                             {value(item, "title_ja") ||
                               value(item, "title_en") ||
-                              "职位未填写"}
+                              m.noJobTitle}
                           </h3>
                           <p>
-                            {value(item, "company") || "公司未填写"}
+                            {value(item, "company") || m.noCompany}
                             {value(item, "product")
                               ? ` · ${value(item, "product")}`
                               : ""}
@@ -194,7 +198,7 @@ export function ProfilePage() {
                           {value(item, "end")
                             ? ` — ${value(item, "end")}`
                             : value(item, "start")
-                              ? " — 至今"
+                              ? ` — ${m.present}`
                               : ""}
                         </span>
                       </div>
@@ -216,7 +220,7 @@ export function ProfilePage() {
                 ))}
               </div>
             ) : (
-              <div className="section-empty">尚未记录工作经历。</div>
+              <div className="section-empty">{m.noExperience}</div>
             )}
           </Panel>
         </div>
@@ -233,8 +237,8 @@ export function ProfilePage() {
               <strong>{data.completion}%</strong>
             </div>
             <div>
-              <h2>资料完整度</h2>
-              <p>完整资料有助于生成更准确的职位定制職務経歴書。</p>
+              <h2>{m.completeness}</h2>
+              <p>{m.completenessHint}</p>
             </div>
             <ul>
               {data.section_status.map((item) => (
@@ -242,9 +246,11 @@ export function ProfilePage() {
                   className={item.complete ? "is-complete" : ""}
                   key={item.key}
                 >
-                  <span>{item.label}</span>
+                  <span>
+                    {labelFor(t.common.profileSections, item.key, item.label)}
+                  </span>
                   <StatusBadge
-                    label={item.complete ? "已填写" : "待补充"}
+                    label={item.complete ? m.filled : m.missing}
                     tone={item.complete ? "success" : "neutral"}
                   />
                 </li>
@@ -253,33 +259,33 @@ export function ProfilePage() {
           </Panel>
           <Panel className="contact-panel">
             <div className="section-heading">
-              <h2>联系方式</h2>
+              <h2>{m.contact}</h2>
             </div>
             <dl>
               <div>
-                <dt>邮箱</dt>
-                <dd>{value(contact, "email") || "未填写"}</dd>
+                <dt>{m.fields.email}</dt>
+                <dd>{value(contact, "email") || m.notFilled}</dd>
               </div>
               <div>
-                <dt>电话</dt>
-                <dd>{value(contact, "phone") || "未填写"}</dd>
+                <dt>{m.fields.phone}</dt>
+                <dd>{value(contact, "phone") || m.notFilled}</dd>
               </div>
               <div>
                 <dt>LinkedIn</dt>
-                <dd>{value(contact, "linkedin") || "未填写"}</dd>
+                <dd>{value(contact, "linkedin") || m.notFilled}</dd>
               </div>
               <div>
                 <dt>GitHub</dt>
-                <dd>{value(contact, "github") || "未填写"}</dd>
+                <dd>{value(contact, "github") || m.notFilled}</dd>
               </div>
             </dl>
           </Panel>
           <Panel className="profile-section profile-side-section">
             <div className="section-heading">
               <div>
-                <h2>教育经历</h2>
+                <h2>{m.education}</h2>
               </div>
-              <strong>{candidate.education?.length ?? 0} 段</strong>
+              <strong>{m.entries(candidate.education?.length ?? 0)}</strong>
             </div>
             {candidate.education?.length ? (
               <div className="simple-grid">
@@ -287,7 +293,7 @@ export function ProfilePage() {
                   <article
                     key={`${value(item, "institution")}-${value(item, "start")}-${value(item, "degree")}`}
                   >
-                    <h3>{value(item, "institution") || "院校未填写"}</h3>
+                    <h3>{value(item, "institution") || m.noInstitution}</h3>
                     <p>
                       {value(item, "degree")}
                       {value(item, "field") ? ` · ${value(item, "field")}` : ""}
@@ -302,20 +308,20 @@ export function ProfilePage() {
                 ))}
               </div>
             ) : (
-              <div className="section-empty">尚未记录教育经历。</div>
+              <div className="section-empty">{m.noEducation}</div>
             )}
           </Panel>
           <Panel className="profile-section profile-side-section">
             <div className="section-heading">
               <div>
-                <h2>技能与语言</h2>
+                <h2>{m.skillsAndLanguages}</h2>
               </div>
             </div>
             <div className="skill-cloud">
               {skills.length ? (
                 skills.map((skill) => <span key={skill}>{skill}</span>)
               ) : (
-                <span className="empty-chip">尚未记录技能</span>
+                <span className="empty-chip">{m.noSkills}</span>
               )}
             </div>
             {candidate.languages?.length ? (
@@ -325,13 +331,13 @@ export function ProfilePage() {
                     key={`${value(item, "language")}-${value(item, "date")}`}
                   >
                     <strong>{value(item, "language")}</strong>
-                    <span>{value(item, "level") || "水平未填写"}</span>
+                    <span>{value(item, "level") || m.noLevel}</span>
                   </div>
                 ))}
               </div>
             ) : null}
           </Panel>
-          <p className="private-data-note">这些资料只从本机私有工作区读取。</p>
+          <p className="private-data-note">{m.privateNote}</p>
         </aside>
       </div>
     </div>
@@ -372,6 +378,8 @@ function blankLanguage(): Language {
 
 export function ProfileEditPage() {
   const { showToast } = useToast();
+  const { t } = useI18n();
+  const m = t.profile;
   const navigate = useNavigate();
   const [candidate, setCandidate] = useState<Candidate | null>(null);
   const [experiences, setExperiences] = useState<Experience[]>([]);
@@ -417,8 +425,11 @@ export function ProfileEditPage() {
       })
       .catch((error) =>
         showToast({
-          title: "读取失败",
-          description: error instanceof Error ? error.message : "请稍后重试",
+          title: currentMessages().profile.readFailed,
+          description:
+            error instanceof Error
+              ? error.message
+              : currentMessages().common.pleaseRetryLater,
         }),
       );
   }, [showToast]);
@@ -426,7 +437,7 @@ export function ProfileEditPage() {
     return (
       <div className="loading-screen">
         <LoaderCircle className="spin" size={26} />
-        <span>正在准备编辑表单…</span>
+        <span>{m.preparingForm}</span>
       </div>
     );
   const identity = candidate.identity ?? {};
@@ -496,8 +507,8 @@ export function ProfileEditPage() {
       navigate("/profile");
     } catch (error) {
       showToast({
-        title: "保存失败",
-        description: error instanceof Error ? error.message : "请检查表单",
+        title: m.saveFailed,
+        description: error instanceof Error ? error.message : m.checkForm,
       });
     } finally {
       setSaving(false);
@@ -506,28 +517,28 @@ export function ProfileEditPage() {
   return (
     <div className="editor-page">
       <PageIntro
-        description="保存后会写入本机私有资料。"
-        title="编辑个人履历"
+        description={m.editDescription}
+        title={m.edit}
         actions={
           <Button onClick={() => navigate("/profile")} variant="secondary">
-            取消
+            {t.common.cancel}
           </Button>
         }
       />
       <form className="editor-form-react" onSubmit={save}>
         <Panel className="editor-section">
-          <h2>基本信息</h2>
+          <h2>{m.identity}</h2>
           <div className="field-grid three-columns">
             {[
-              ["name_ja", "中文 / 日文姓名"],
-              ["name_en", "英文姓名"],
-              ["current_title", "当前职位"],
-              ["current_employer", "当前公司"],
-              ["location", "所在地"],
-              ["employment_status", "就业状态"],
-            ].map(([key, label]) => (
+              "name_ja",
+              "name_en",
+              "current_title",
+              "current_employer",
+              "location",
+              "employment_status",
+            ].map((key) => (
               <label className="field-label" key={key}>
-                <span>{label}</span>
+                <span>{m.fields[key]}</span>
                 <input
                   onChange={(event) =>
                     update("identity", key, event.target.value)
@@ -539,16 +550,11 @@ export function ProfileEditPage() {
           </div>
         </Panel>
         <Panel className="editor-section">
-          <h2>联系方式</h2>
+          <h2>{m.contact}</h2>
           <div className="field-grid two-columns">
-            {[
-              ["email", "邮箱"],
-              ["phone", "电话"],
-              ["linkedin", "LinkedIn"],
-              ["github", "GitHub"],
-            ].map(([key, label]) => (
+            {["email", "phone", "linkedin", "github"].map((key) => (
               <label className="field-label" key={key}>
-                <span>{label}</span>
+                <span>{m.fields[key]}</span>
                 <input
                   onChange={(event) =>
                     update("contact", key, event.target.value)
@@ -561,10 +567,10 @@ export function ProfileEditPage() {
           </div>
         </Panel>
         <Panel className="editor-section">
-          <h2>个人简介与技能</h2>
+          <h2>{m.summaryAndSkills}</h2>
           <div className="field-grid two-columns">
             <label className="field-label">
-              <span>个人简介</span>
+              <span>{m.summary}</span>
               <textarea
                 onChange={(event) =>
                   setCandidate((current) =>
@@ -578,7 +584,7 @@ export function ProfileEditPage() {
               />
             </label>
             <label className="field-label">
-              <span>技能（每行一项）</span>
+              <span>{m.skillsPerLine}</span>
               <textarea
                 onChange={(event) =>
                   setCandidate((current) =>
@@ -600,24 +606,24 @@ export function ProfileEditPage() {
           </div>
         </Panel>
         <RepeatSection
-          title="工作经历"
-          description="清空整条记录即可删除。"
+          title={m.experience}
+          description={m.clearToDelete}
           onAdd={() => setExperiences((items) => [...items, blankExperience()])}
         >
           {experiences.map((item, index) => (
             <fieldset className="repeat-record" key={item.id}>
-              <legend>经历 {index + 1}</legend>
+              <legend>{m.experienceItem(index + 1)}</legend>
               <div className="field-grid three-columns">
                 {[
-                  ["company", "公司"],
-                  ["title_ja", "职位（日文）"],
-                  ["title_en", "职位（英文）"],
-                  ["start", "开始时间"],
-                  ["end", "结束时间"],
-                  ["product", "项目 / 产品"],
-                ].map(([key, label]) => (
+                  "company",
+                  "title_ja",
+                  "title_en",
+                  "start",
+                  "end",
+                  "product",
+                ].map((key) => (
                   <label className="field-label" key={key}>
-                    <span>{label}</span>
+                    <span>{m.experienceFields[key]}</span>
                     <input
                       onChange={(event) =>
                         setExperiences((items) =>
@@ -634,7 +640,7 @@ export function ProfileEditPage() {
                 ))}
               </div>
               <label className="field-label">
-                <span>事实与成果（每行一项）</span>
+                <span>{m.factsPerLine}</span>
                 <textarea
                   onChange={(event) =>
                     setExperiences((items) =>
@@ -653,58 +659,49 @@ export function ProfileEditPage() {
           ))}
         </RepeatSection>
         <RepeatSection
-          title="教育经历"
-          description="清空整条记录即可删除。"
+          title={m.education}
+          description={m.clearToDelete}
           onAdd={() => setEducations((items) => [...items, blankEducation()])}
         >
           {educations.map((item, index) => (
             <fieldset className="repeat-record" key={item.id}>
-              <legend>教育 {index + 1}</legend>
+              <legend>{m.educationItem(index + 1)}</legend>
               <div className="field-grid three-columns">
-                {[
-                  ["institution", "院校"],
-                  ["degree", "学位"],
-                  ["field", "专业"],
-                  ["start", "开始时间"],
-                  ["graduated", "毕业时间"],
-                ].map(([key, label]) => (
-                  <label className="field-label" key={key}>
-                    <span>{label}</span>
-                    <input
-                      onChange={(event) =>
-                        setEducations((items) =>
-                          items.map((current, itemIndex) =>
-                            itemIndex === index
-                              ? { ...current, [key]: event.target.value }
-                              : current,
-                          ),
-                        )
-                      }
-                      value={item[key as keyof Education] as string}
-                    />
-                  </label>
-                ))}
+                {["institution", "degree", "field", "start", "graduated"].map(
+                  (key) => (
+                    <label className="field-label" key={key}>
+                      <span>{m.educationFields[key]}</span>
+                      <input
+                        onChange={(event) =>
+                          setEducations((items) =>
+                            items.map((current, itemIndex) =>
+                              itemIndex === index
+                                ? { ...current, [key]: event.target.value }
+                                : current,
+                            ),
+                          )
+                        }
+                        value={item[key as keyof Education] as string}
+                      />
+                    </label>
+                  ),
+                )}
               </div>
             </fieldset>
           ))}
         </RepeatSection>
         <RepeatSection
-          title="语言能力"
-          description="清空整条记录即可删除。"
+          title={m.languages}
+          description={m.clearToDelete}
           onAdd={() => setLanguages((items) => [...items, blankLanguage()])}
         >
           {languages.map((item, index) => (
             <fieldset className="repeat-record" key={item.id}>
-              <legend>语言 {index + 1}</legend>
+              <legend>{m.languageItem(index + 1)}</legend>
               <div className="field-grid four-columns">
-                {[
-                  ["language", "语言"],
-                  ["level", "水平"],
-                  ["evidence", "依据"],
-                  ["date", "日期"],
-                ].map(([key, label]) => (
+                {["language", "level", "evidence", "date"].map((key) => (
                   <label className="field-label" key={key}>
-                    <span>{label}</span>
+                    <span>{m.languageFields[key]}</span>
                     <input
                       onChange={(event) =>
                         setLanguages((items) =>
@@ -725,7 +722,7 @@ export function ProfileEditPage() {
         </RepeatSection>
         <div className="editor-actions">
           <Button onClick={() => navigate("/profile")} variant="secondary">
-            取消
+            {t.common.cancel}
           </Button>
           <Button disabled={saving} type="submit">
             {saving ? (
@@ -733,7 +730,7 @@ export function ProfileEditPage() {
             ) : (
               <Save size={15} />
             )}
-            保存个人履历
+            {m.saveProfile}
           </Button>
         </div>
       </form>
@@ -752,6 +749,7 @@ function RepeatSection({
   onAdd: () => void;
   children: React.ReactNode;
 }) {
+  const { t } = useI18n();
   return (
     <Panel className="editor-section">
       <div className="editor-heading">
@@ -761,7 +759,7 @@ function RepeatSection({
         </div>
         <Button onClick={onAdd} variant="secondary">
           <Plus size={15} />
-          新增
+          {t.profile.add}
         </Button>
       </div>
       <div className="repeat-list">{children}</div>
@@ -771,16 +769,22 @@ function RepeatSection({
 
 export function PreferencesPage() {
   const { showToast } = useToast();
+  const { t } = useI18n();
+  const m = t.profile;
   const navigate = useNavigate();
   const [preferences, setPreferences] = useState<Preferences | null>(null);
+  const p = m.preferences;
   useEffect(() => {
     void api
       .preferences()
       .then((data) => setPreferences(data.preferences))
       .catch((error) =>
         showToast({
-          title: "求职偏好加载失败",
-          description: error instanceof Error ? error.message : "请稍后重试",
+          title: currentMessages().profile.preferences.loadFailed,
+          description:
+            error instanceof Error
+              ? error.message
+              : currentMessages().common.pleaseRetryLater,
         }),
       );
   }, [showToast]);
@@ -788,7 +792,7 @@ export function PreferencesPage() {
     return (
       <div className="loading-screen">
         <LoaderCircle className="spin" size={26} />
-        <span>正在读取求职偏好…</span>
+        <span>{m.preferences.loading}</span>
       </div>
     );
   const work = preferences.work_style ?? {};
@@ -805,18 +809,18 @@ export function PreferencesPage() {
   return (
     <div className="preferences-page">
       <PageIntro
-        description="用于搜索、筛选与岗位匹配的本地条件"
-        title="求职偏好"
+        description={m.preferences.description}
+        title={m.preferences.title}
         actions={
           <>
             <AiPromptButton
-              label="复制偏好完善指令"
-              prompt={AI_PROMPTS.preferences}
-              successDescription="请粘贴到 Codex 中开始生成。"
+              label={m.preferences.copyPrompt}
+              prompt={aiPrompts().preferences}
+              successDescription={m.promptHint}
             />
             <Button onClick={() => navigate("/preferences/edit")}>
               <SettingsIcon />
-              编辑偏好
+              {m.preferences.edit}
             </Button>
           </>
         }
@@ -824,86 +828,89 @@ export function PreferencesPage() {
       <div className="preferences-layout">
         <Panel className="preference-section preference-primary">
           <div className="section-heading">
-            <h2>目标方向</h2>
+            <h2>{p.targets}</h2>
           </div>
-          <PreferenceList label="目标职位" values={list("target_roles")} />
-          <PreferenceList label="目标领域" values={list("target_domains")} />
-          <PreferenceList label="目标地区" values={list("locations")} />
+          <PreferenceList label={p.targetRoles} values={list("target_roles")} />
+          <PreferenceList
+            label={p.targetDomains}
+            values={list("target_domains")}
+          />
+          <PreferenceList label={p.locations} values={list("locations")} />
         </Panel>
         <Panel className="preference-section">
-          <h2>工作方式</h2>
+          <h2>{p.workStyle}</h2>
           <dl className="preference-rows">
             <div>
-              <dt>偏好远程办公</dt>
+              <dt>{p.remotePreferred}</dt>
               <dd>
                 {work.remote_preferred == null
-                  ? "未设置"
+                  ? p.notSet
                   : work.remote_preferred
-                    ? "是"
-                    : "否"}
+                    ? p.yes
+                    : p.no}
               </dd>
             </div>
             <div>
-              <dt>每周最多到岗</dt>
+              <dt>{p.maxOfficeDays}</dt>
               <dd>
                 {work.maximum_office_days_per_week == null
-                  ? "未设置"
-                  : `${work.maximum_office_days_per_week} 天`}
+                  ? p.notSet
+                  : p.days(work.maximum_office_days_per_week)}
               </dd>
             </div>
             <div>
-              <dt>偏好自主性</dt>
+              <dt>{p.autonomyPreferred}</dt>
               <dd>
                 {work.autonomy_preferred == null
-                  ? "未设置"
+                  ? p.notSet
                   : work.autonomy_preferred
-                    ? "是"
-                    : "否"}
+                    ? p.yes
+                    : p.no}
               </dd>
             </div>
             <div>
-              <dt>重视专注时间</dt>
+              <dt>{p.focusTimePreferred}</dt>
               <dd>
                 {work.focus_time_preferred == null
-                  ? "未设置"
+                  ? p.notSet
                   : work.focus_time_preferred
-                    ? "是"
-                    : "否"}
+                    ? p.yes
+                    : p.no}
               </dd>
             </div>
           </dl>
         </Panel>
         <Panel className="preference-section compensation-section">
-          <h2>期望薪资</h2>
+          <h2>{p.compensation}</h2>
           <div className="compensation-values">
             <div>
-              <span>最低</span>
+              <span>{p.minimum}</span>
               <strong>
-                {compensation.currency || ""} {compensation.minimum ?? "未设置"}
+                {compensation.currency || ""} {compensation.minimum ?? p.notSet}
               </strong>
             </div>
             <div>
-              <span>目标</span>
+              <span>{p.target}</span>
               <strong>
-                {compensation.currency || ""} {compensation.target ?? "未设置"}
+                {compensation.currency || ""} {compensation.target ?? p.notSet}
               </strong>
             </div>
           </div>
         </Panel>
         <Panel className="preference-section constraints-section">
-          <h2>筛选条件</h2>
+          <h2>{p.filters}</h2>
           <PreferenceList
-            label="不可接受条件"
+            label={p.hardConstraints}
             values={list("hard_constraints")}
             bullet
           />
           <PreferenceList
-            label="加分项"
+            label={p.softPreferences}
             values={list("soft_preferences")}
             bullet
           />
           <PreferenceList
-            label="拉黑公司"
+            label={p.blacklist}
             values={list("blacklisted_companies")}
           />
         </Panel>
@@ -924,6 +931,7 @@ function PreferenceList({
   values: string[];
   bullet?: boolean;
 }) {
+  const { t } = useI18n();
   return (
     <div className="preference-group">
       <h3>{label}</h3>
@@ -942,7 +950,9 @@ function PreferenceList({
           </div>
         )
       ) : (
-        <p className="section-empty">尚未设置{label}。</p>
+        <p className="section-empty">
+          {t.profile.preferences.emptyList(label)}
+        </p>
       )}
     </div>
   );
@@ -950,8 +960,11 @@ function PreferenceList({
 
 export function PreferencesEditPage() {
   const { showToast } = useToast();
+  const { t } = useI18n();
+  const m = t.profile;
   const navigate = useNavigate();
   const [preferences, setPreferences] = useState<Preferences | null>(null);
+  const p = m.preferences;
   const [saving, setSaving] = useState(false);
   useEffect(() => {
     void api
@@ -959,8 +972,11 @@ export function PreferencesEditPage() {
       .then((data) => setPreferences(data.preferences))
       .catch((error) =>
         showToast({
-          title: "读取失败",
-          description: error instanceof Error ? error.message : "请稍后重试",
+          title: currentMessages().profile.readFailed,
+          description:
+            error instanceof Error
+              ? error.message
+              : currentMessages().common.pleaseRetryLater,
         }),
       );
   }, [showToast]);
@@ -968,7 +984,7 @@ export function PreferencesEditPage() {
     return (
       <div className="loading-screen">
         <LoaderCircle className="spin" size={26} />
-        <span>正在准备编辑表单…</span>
+        <span>{m.preparingForm}</span>
       </div>
     );
   const work = preferences.work_style ?? {};
@@ -1017,8 +1033,8 @@ export function PreferencesEditPage() {
       navigate("/preferences");
     } catch (error) {
       showToast({
-        title: "保存失败",
-        description: error instanceof Error ? error.message : "请检查表单",
+        title: m.saveFailed,
+        description: error instanceof Error ? error.message : m.checkForm,
       });
     } finally {
       setSaving(false);
@@ -1027,32 +1043,32 @@ export function PreferencesEditPage() {
   return (
     <div className="editor-page">
       <PageIntro
-        description="这些条件用于后续搜索、筛选和岗位判断。"
-        title="编辑求职偏好"
+        description={p.editDescription}
+        title={p.editTitle}
         actions={
           <Button onClick={() => navigate("/preferences")} variant="secondary">
-            取消
+            {t.common.cancel}
           </Button>
         }
       />
       <form className="editor-form-react" onSubmit={save}>
         <Panel className="editor-section">
-          <h2>目标方向</h2>
+          <h2>{p.targets}</h2>
           <div className="field-grid three-columns">
             <TextAreaField
-              label="目标职位（每行一项）"
+              label={p.targetRolesPerLine}
               onChange={(value) => setList("target_roles", value)}
               rows={8}
               value={joinLines(preferences.target_roles)}
             />
             <TextAreaField
-              label="目标领域（每行一项）"
+              label={p.targetDomainsPerLine}
               onChange={(value) => setList("target_domains", value)}
               rows={8}
               value={joinLines(preferences.target_domains)}
             />
             <TextAreaField
-              label="目标地区（每行一项）"
+              label={p.locationsPerLine}
               onChange={(value) => setList("locations", value)}
               rows={8}
               value={joinLines(preferences.locations)}
@@ -1060,11 +1076,11 @@ export function PreferencesEditPage() {
           </div>
         </Panel>
         <Panel className="editor-section">
-          <h2>工作方式</h2>
+          <h2>{p.workStyle}</h2>
           <div className="toggle-grid">
             <ToggleField
               checked={Boolean(work.remote_preferred)}
-              label="偏好远程办公"
+              label={p.remotePreferred}
               onChange={(checked) =>
                 setPreferences((current) =>
                   current
@@ -1081,7 +1097,7 @@ export function PreferencesEditPage() {
             />
             <ToggleField
               checked={Boolean(work.autonomy_preferred)}
-              label="偏好较高自主性"
+              label={p.autonomyToggle}
               onChange={(checked) =>
                 setPreferences((current) =>
                   current
@@ -1098,7 +1114,7 @@ export function PreferencesEditPage() {
             />
             <ToggleField
               checked={Boolean(work.focus_time_preferred)}
-              label="重视专注工作时间"
+              label={p.focusToggle}
               onChange={(checked) =>
                 setPreferences((current) =>
                   current
@@ -1114,7 +1130,7 @@ export function PreferencesEditPage() {
               }
             />
             <label className="field-label">
-              <span>每周最多到岗天数</span>
+              <span>{p.maxOfficeDaysField}</span>
               <input
                 max={7}
                 min={0}
@@ -1140,10 +1156,10 @@ export function PreferencesEditPage() {
           </div>
         </Panel>
         <Panel className="editor-section">
-          <h2>期望薪资</h2>
+          <h2>{p.compensation}</h2>
           <div className="field-grid three-columns">
             <TextField
-              label="币种"
+              label={p.currency}
               onChange={(value) =>
                 setPreferences((current) =>
                   current
@@ -1160,7 +1176,7 @@ export function PreferencesEditPage() {
               value={compensation.currency ?? "JPY"}
             />
             <TextField
-              label="最低"
+              label={p.minimum}
               onChange={(value) =>
                 setPreferences((current) =>
                   current
@@ -1178,7 +1194,7 @@ export function PreferencesEditPage() {
               value={compensation.minimum ?? ""}
             />
             <TextField
-              label="目标"
+              label={p.target}
               onChange={(value) =>
                 setPreferences((current) =>
                   current
@@ -1198,22 +1214,22 @@ export function PreferencesEditPage() {
           </div>
         </Panel>
         <Panel className="editor-section">
-          <h2>筛选条件</h2>
+          <h2>{p.filters}</h2>
           <div className="field-grid two-columns">
             <TextAreaField
-              label="不可接受条件（每行一项）"
+              label={p.hardConstraintsPerLine}
               onChange={(value) => setList("hard_constraints", value)}
               rows={8}
               value={joinLines(preferences.hard_constraints)}
             />
             <TextAreaField
-              label="加分项（每行一项）"
+              label={p.softPreferencesPerLine}
               onChange={(value) => setList("soft_preferences", value)}
               rows={8}
               value={joinLines(preferences.soft_preferences)}
             />
             <TextAreaField
-              label="拉黑公司（每行一家公司）"
+              label={p.blacklistPerLine}
               onChange={(value) => setList("blacklisted_companies", value)}
               rows={8}
               value={joinLines(preferences.blacklisted_companies)}
@@ -1222,7 +1238,7 @@ export function PreferencesEditPage() {
         </Panel>
         <div className="editor-actions">
           <Button onClick={() => navigate("/preferences")} variant="secondary">
-            取消
+            {t.common.cancel}
           </Button>
           <Button disabled={saving} type="submit">
             {saving ? (
@@ -1230,7 +1246,7 @@ export function PreferencesEditPage() {
             ) : (
               <Save size={15} />
             )}
-            保存求职偏好
+            {p.save}
           </Button>
         </div>
       </form>

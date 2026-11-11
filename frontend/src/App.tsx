@@ -4,6 +4,7 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { api } from "./api";
 import { AppShell, EmptyState } from "./components/Layout";
 import { TodayActionsPage } from "./components/TodayActions";
+import { useI18n } from "./i18n";
 import { ApplicationDetailPage } from "./pages/ApplicationDetailPage";
 import { ApplicationsPage } from "./pages/ApplicationsPage";
 import { DashboardPage } from "./pages/DashboardPage";
@@ -19,13 +20,14 @@ import type { Session } from "./types";
 import "./styles.css";
 
 function NotFound() {
+  const { t } = useI18n();
   return (
     <EmptyState
-      description="这个页面不存在，返回工作区继续操作。"
-      title="页面不存在"
+      description={t.shell.notFoundDescription}
+      title={t.shell.notFoundTitle}
       action={
         <a className="button button-primary" href="/">
-          返回岗位
+          {t.shell.backToJobs}
         </a>
       }
     />
@@ -35,21 +37,22 @@ function NotFound() {
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { t } = useI18n();
   useEffect(() => {
     void api
       .session()
       .then(setSession)
       .catch((reason: unknown) =>
-        setError(reason instanceof Error ? reason.message : "无法连接本地服务"),
+        setError(reason instanceof Error ? reason.message : ""),
       );
   }, []);
-  if (error)
+  if (error !== null)
     return (
       <div className="loading-screen">
         <h1>AI Job Agent</h1>
-        <p>{error}</p>
+        <p>{error || t.shell.cannotConnect}</p>
         <a className="button button-primary" href="/">
-          重试
+          {t.common.retry}
         </a>
       </div>
     );
@@ -57,7 +60,7 @@ export default function App() {
     return (
       <div className="loading-screen">
         <LoaderCircle className="spin" size={28} />
-        <span>正在连接本机工作区…</span>
+        <span>{t.shell.connecting}</span>
       </div>
     );
   return (

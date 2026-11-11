@@ -1,10 +1,17 @@
+import { getActiveLocale, intlLocale } from "./i18n/locale";
+import { messages } from "./i18n/messages";
+
+function activeMessages() {
+  return messages[getActiveLocale()];
+}
+
 export function formatDate(value?: string | null, withTime = false): string {
   if (!value) return "—";
   const date = new Date(value);
   if (Number.isNaN(date.getTime()))
     return value.slice(0, withTime ? 16 : 10).replace("T", " ");
   return new Intl.DateTimeFormat(
-    "zh-CN",
+    intlLocale(getActiveLocale()),
     withTime
       ? {
           year: "numeric",
@@ -25,10 +32,11 @@ export function formatBytes(value?: number): string {
 }
 
 export function recommendationLabel(value?: string | null): string {
-  if (value === "pursue") return "推荐申请";
-  if (value === "consider") return "可以考虑";
-  if (value === "skip") return "暂缓申请";
-  return "未分析";
+  const labels = activeMessages().common.recommendation;
+  if (value === "pursue") return labels.pursue;
+  if (value === "consider") return labels.consider;
+  if (value === "skip") return labels.skip;
+  return labels.none;
 }
 
 export function recommendationTone(value?: string | null): string {
@@ -43,14 +51,17 @@ export function fileName(path: string): string {
 }
 
 export function filePurpose(value?: string): string {
-  const labels: Record<string, string> = {
-    rirekisho: "履歴書（用户自备）",
-    shokumu_keirekisho: "職務経歴書",
-    employer_form: "公司表格",
-    portfolio: "作品集",
-    other: "其他",
-  };
-  return labels[value ?? ""] ?? value ?? "文件";
+  const { common } = activeMessages();
+  return common.filePurpose[value ?? ""] ?? value ?? common.file;
+}
+
+/** Localized label for a status code, falling back to the server label. */
+export function labelFor(
+  labels: Record<string, string>,
+  key: string | null | undefined,
+  fallback?: string,
+): string {
+  return labels[key ?? ""] ?? fallback ?? key ?? "";
 }
 
 export function joinLines(value: unknown): string {

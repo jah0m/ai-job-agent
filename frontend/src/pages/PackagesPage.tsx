@@ -17,10 +17,13 @@ import {
   useToast,
 } from "../components/Layout";
 import { fileName, formatDate } from "../format";
+import { useI18n } from "../i18n";
 import type { PackageCatalogItem } from "../types";
 
 export function PackagesPage() {
   const { showToast } = useToast();
+  const { t } = useI18n();
+  const m = t.packages;
   const [items, setItems] = useState<PackageCatalogItem[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const load = useCallback(async () => {
@@ -28,11 +31,12 @@ export function PackagesPage() {
       setItems((await api.packages()).items);
     } catch (error) {
       showToast({
-        title: "材料包加载失败",
-        description: error instanceof Error ? error.message : "请稍后重试",
+        title: m.loadFailed,
+        description:
+          error instanceof Error ? error.message : t.common.pleaseRetryLater,
       });
     }
-  }, [showToast]);
+  }, [showToast, m, t]);
   useEffect(() => {
     void load();
   }, [load]);
@@ -46,9 +50,8 @@ export function PackagesPage() {
       await load();
     } catch (error) {
       showToast({
-        title: "恢复失败",
-        description:
-          error instanceof Error ? error.message : "请在申请详情中重试",
+        title: m.restoreFailed,
+        description: error instanceof Error ? error.message : m.retryInDetail,
       });
     } finally {
       setBusy(null);
@@ -58,15 +61,12 @@ export function PackagesPage() {
     return (
       <div className="loading-screen">
         <LoaderCircle className="spin" size={26} />
-        <span>正在读取材料包…</span>
+        <span>{m.loading}</span>
       </div>
     );
   return (
     <div className="packages-page">
-      <PageIntro
-        description="不可变快照用于记录实际投递时使用的材料。"
-        title="材料包"
-      />
+      <PageIntro description={m.description} title={m.title} />
       {items.length ? (
         <div className="catalog-grid">
           {items.map(({ application, package: item }) => (
@@ -80,17 +80,17 @@ export function PackagesPage() {
                 </div>
                 <div>
                   <span className="page-eyebrow">{application.company}</span>
-                  <h2>{item.label || "材料包"}</h2>
+                  <h2>{item.label || m.fallbackLabel}</h2>
                   <p>{application.role}</p>
                 </div>
                 <StatusBadge
-                  label={item.is_submitted ? "已锁定" : "可恢复"}
+                  label={item.is_submitted ? m.locked : m.restorable}
                   tone={item.is_submitted ? "success" : "neutral"}
                 />
               </div>
               <div className="catalog-meta">
-                <span>创建于 {formatDate(item.created_at, true)}</span>
-                <span>{item.files.length} 个文件</span>
+                <span>{m.createdAt(formatDate(item.created_at, true))}</span>
+                <span>{m.fileCount(item.files.length)}</span>
               </div>
               <div className="catalog-files">
                 {item.files.map((file) => {
@@ -123,18 +123,18 @@ export function PackagesPage() {
                   {item.readiness.ready_for_exact_files ? (
                     <>
                       <Check size={14} />
-                      可作为精确文件证据
+                      {m.exactEvidence}
                     </>
                   ) : item.readiness.ready_for_source_only ? (
-                    "可作为材料来源"
+                    m.sourceOnly
                   ) : (
-                    "需检查完整性"
+                    m.checkIntegrity
                   )}
                 </span>
                 {item.is_submitted ? (
                   <span className="locked-note">
                     <LockKeyhole size={14} />
-                    投递记录引用后永久保留
+                    {m.keptForever}
                   </span>
                 ) : (
                   <Button
@@ -147,7 +147,7 @@ export function PackagesPage() {
                     ) : (
                       <Archive size={14} />
                     )}
-                    恢复到当前材料
+                    {m.restore}
                   </Button>
                 )}
               </div>
@@ -156,10 +156,7 @@ export function PackagesPage() {
         </div>
       ) : (
         <Panel>
-          <EmptyState
-            description="在申请详情中保存一次当前材料后，材料包会出现在这里。"
-            title="还没有材料包"
-          />
+          <EmptyState description={m.emptyHint} title={m.emptyTitle} />
         </Panel>
       )}
     </div>

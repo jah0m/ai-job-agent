@@ -1,3 +1,5 @@
+import { getActiveLocale } from "./i18n/locale";
+import { messages } from "./i18n/messages";
 import type {
   ApplicationsResponse,
   DocumentPreview,
@@ -9,13 +11,17 @@ import type {
 
 let csrfToken = "";
 
+function requestFailed(status: number): string {
+  return messages[getActiveLocale()].common.requestFailed(status);
+}
+
 async function readError(response: Response): Promise<string> {
   const text = await response.text();
   try {
     const data = JSON.parse(text) as { detail?: string };
-    return data.detail ?? `请求失败（${response.status}）`;
+    return data.detail ?? requestFailed(response.status);
   } catch {
-    return text || `请求失败（${response.status}）`;
+    return text || requestFailed(response.status);
   }
 }
 

@@ -1,5 +1,6 @@
 import * as Toast from "@radix-ui/react-toast";
 import { createContext, type ReactNode, useContext, useState } from "react";
+import { useI18n } from "../i18n";
 
 type ToastState = {
   title: string;
@@ -20,6 +21,7 @@ export function useToast(): ToastContextValue {
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toast, setToast] = useState<ToastState>(null);
+  const { t } = useI18n();
 
   return (
     <Toast.Provider swipeDirection="right">
@@ -39,7 +41,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               </Toast.Description>
             ) : null}
           </div>
-          <Toast.Close className="toast-close" aria-label="关闭提示">
+          <Toast.Close className="toast-close" aria-label={t.shell.closeToast}>
             ×
           </Toast.Close>
         </Toast.Root>

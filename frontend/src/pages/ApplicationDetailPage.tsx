@@ -27,7 +27,14 @@ import {
   useToast,
 } from "../components/Layout";
 import { NextActionEditor } from "../components/NextActionEditor";
-import { fileName, filePurpose, formatBytes, formatDate } from "../format";
+import {
+  fileName,
+  filePurpose,
+  formatBytes,
+  formatDate,
+  labelFor,
+} from "../format";
+import { type Messages, useI18n } from "../i18n";
 import { preparationState } from "../preparation";
 import {
   buildApplicationDiscussionPrompt,
@@ -90,6 +97,8 @@ function MaterialRow({
   packageId?: string;
   onRemove?: () => void;
 }) {
+  const { t } = useI18n();
+  const m = t.detail;
   const download = packageId
     ? packageFileUrl(applicationId, packageId, file.path)
     : downloadDraftUrl(applicationId, file.path);
@@ -116,7 +125,7 @@ function MaterialRow({
       <div className="row-actions">
         {canPreviewMarkdown ? (
           <Link
-            aria-label={`预览 ${fileName(file.path)}`}
+            aria-label={m.preview(fileName(file.path))}
             className="icon-action"
             to={preview}
           >
@@ -125,7 +134,7 @@ function MaterialRow({
         ) : null}
         {isPdf ? (
           <a
-            aria-label={`预览 ${fileName(file.path)}`}
+            aria-label={m.preview(fileName(file.path))}
             className="icon-action"
             href={download}
             rel="noreferrer"
@@ -135,7 +144,7 @@ function MaterialRow({
           </a>
         ) : (
           <a
-            aria-label={`下载 ${fileName(file.path)}`}
+            aria-label={m.download(fileName(file.path))}
             className="icon-action"
             download
             href={download}
@@ -145,7 +154,7 @@ function MaterialRow({
         )}
         {!packageId && isApplicationMarkdown ? (
           <Link
-            aria-label={`编辑 ${fileName(file.path)}`}
+            aria-label={m.edit(fileName(file.path))}
             className="icon-action"
             to={`/applications/${encodeURIComponent(applicationId)}/draft/edit/${encodedPath(file.path)}`}
           >
@@ -154,7 +163,7 @@ function MaterialRow({
         ) : null}
         {onRemove ? (
           <button
-            aria-label={`移除 ${fileName(file.path)}`}
+            aria-label={m.remove(fileName(file.path))}
             className="icon-action danger"
             onClick={onRemove}
             type="button"
@@ -168,6 +177,8 @@ function MaterialRow({
 }
 
 function ValidationBanner({ draft }: { draft: Draft }) {
+  const { t } = useI18n();
+  const m = t.detail.validation;
   const validation = validationItems(draft.validation);
   if (validation.ready)
     return (
@@ -177,7 +188,7 @@ function ValidationBanner({ draft }: { draft: Draft }) {
         role="status"
       >
         <Check size={16} />
-        <span>自动检查通过：職務経歴書 Markdown 已通过基础检查。</span>
+        <span>{m.ready}</span>
       </div>
     );
   if (
@@ -188,7 +199,7 @@ function ValidationBanner({ draft }: { draft: Draft }) {
     return (
       <div aria-live="polite" className="validation-banner" role="status">
         <FileText size={16} />
-        <span>自动检查：尚未保存職務経歴書。</span>
+        <span>{m.notSaved}</span>
       </div>
     );
   return (
@@ -199,9 +210,9 @@ function ValidationBanner({ draft }: { draft: Draft }) {
     >
       <Archive size={16} />
       <div>
-        <strong>自动检查发现问题</strong>
+        <strong>{m.problems}</strong>
         {validation.missing.length ? (
-          <p>缺少：{validation.missing.join("、")}</p>
+          <p>{m.missing(validation.missing.join(m.separator))}</p>
         ) : null}
         {validation.errors.length ? (
           <ul>
@@ -211,7 +222,7 @@ function ValidationBanner({ draft }: { draft: Draft }) {
           </ul>
         ) : null}
         {validation.placeholders.length ? (
-          <p>仍有“要确认”占位符：{validation.placeholders.join("、")}</p>
+          <p>{m.placeholders(validation.placeholders.join(m.separator))}</p>
         ) : null}
       </div>
     </div>
@@ -249,6 +260,7 @@ function ActivityItem({
   event: ActivityEvent;
   labels: Record<string, string>;
 }) {
+  const { t } = useI18n();
   const snapshot =
     event.type === "action.clear" ? event.data.before : event.data.after;
   const action =
@@ -259,13 +271,13 @@ function ActivityItem({
     <li key={`${event.type}-${event.created_at}-${JSON.stringify(event.data)}`}>
       <span className="activity-dot" />
       <div>
-        <strong>{eventLabel(event.type, event.data, labels)}</strong>
+        <strong>{eventLabel(t, event.type, event.data, labels)}</strong>
         {action ? (
           <p>
             {String(action.title ?? "")}
             {action.due_date
-              ? ` · 到期 ${String(action.due_date)}`
-              : " · 未设日期"}
+              ? t.detail.activity.due(String(action.due_date))
+              : t.detail.activity.noDate}
           </p>
         ) : null}
         {typeof event.data.note === "string" ? <p>{event.data.note}</p> : null}
@@ -285,6 +297,8 @@ function SubmissionDialog({
   onDone: () => Promise<void>;
 }) {
   const { showToast } = useToast();
+  const { t } = useI18n();
+  const m = t.detail.submission;
   const [open, setOpen] = useState(false);
   const [evidence, setEvidence] = useState("exact_files");
   const [packageId, setPackageId] = useState("");
@@ -332,15 +346,14 @@ function SubmissionDialog({
       );
       setOpen(false);
       showToast({
-        title: "投递记录已保存",
-        description: "这次记录已绑定对应的材料快照。",
+        title: m.saved,
+        description: m.savedHint,
       });
       await onDone();
     } catch (error) {
       showToast({
-        title: "记录失败",
-        description:
-          error instanceof Error ? error.message : "请检查材料和证据级别",
+        title: m.failed,
+        description: error instanceof Error ? error.message : m.failedHint,
       });
     } finally {
       setSaving(false);
@@ -352,7 +365,7 @@ function SubmissionDialog({
       <Dialog.Trigger asChild>
         <Button>
           <PackageCheck size={16} />
-          记录已投递
+          {m.trigger}
         </Button>
       </Dialog.Trigger>
       <Dialog.Portal>
@@ -360,13 +373,15 @@ function SubmissionDialog({
         <Dialog.Content className="dialog-content submission-dialog">
           <div className="dialog-heading">
             <div>
-              <Dialog.Title>记录已完成的投递</Dialog.Title>
-              <Dialog.Description>
-                只记录你已在外部完成的申请，不会发送文件。
-              </Dialog.Description>
+              <Dialog.Title>{m.title}</Dialog.Title>
+              <Dialog.Description>{m.description}</Dialog.Description>
             </div>
             <Dialog.Close asChild>
-              <button aria-label="关闭" className="icon-button" type="button">
+              <button
+                aria-label={t.common.close}
+                className="icon-button"
+                type="button"
+              >
                 <X size={18} />
               </button>
             </Dialog.Close>
@@ -374,18 +389,20 @@ function SubmissionDialog({
           <form className="stack-form" onSubmit={submit}>
             <div className="form-grid">
               <label className="field-label">
-                <span>证据级别</span>
+                <span>{m.evidence}</span>
                 <select
                   onChange={(event) => setEvidence(event.target.value)}
                   value={evidence}
                 >
-                  <option value="exact_files">精确文件（推荐）</option>
-                  <option value="source_only">仅材料来源</option>
-                  <option value="status_only">仅记录状态</option>
+                  <option value="exact_files">{m.exactRecommended}</option>
+                  <option value="source_only">
+                    {m.evidenceLevels.source_only}
+                  </option>
+                  <option value="status_only">{m.statusOnlyOption}</option>
                 </select>
               </label>
               <label className="field-label">
-                <span>材料来源</span>
+                <span>{m.source}</span>
                 <select
                   disabled={evidence === "status_only"}
                   onChange={(event) => {
@@ -394,7 +411,7 @@ function SubmissionDialog({
                   }}
                   value={packageId}
                 >
-                  <option value="">当前材料（投递时自动保存）</option>
+                  <option value="">{m.currentSource}</option>
                   {application.packages
                     .slice()
                     .reverse()
@@ -407,7 +424,7 @@ function SubmissionDialog({
                 </select>
               </label>
               <label className="field-label">
-                <span>实际投递时间</span>
+                <span>{m.submittedAt}</span>
                 <input
                   onChange={(event) => setSubmittedAt(event.target.value)}
                   type="datetime-local"
@@ -415,22 +432,22 @@ function SubmissionDialog({
                 />
               </label>
               <label className="field-label">
-                <span>渠道</span>
+                <span>{m.channel}</span>
                 <select
                   onChange={(event) => setChannel(event.target.value)}
                   value={channel}
                 >
-                  <option value="company_portal">公司招聘页</option>
-                  <option value="email">邮件</option>
-                  <option value="recruiting_agent">猎头 / 中介</option>
-                  <option value="linkedin">LinkedIn</option>
-                  <option value="other">其他</option>
+                  {Object.entries(m.channels).map(([key, label]) => (
+                    <option key={key} value={key}>
+                      {label}
+                    </option>
+                  ))}
                 </select>
               </label>
             </div>
             {evidence === "exact_files" ? (
               <fieldset className="file-checklist">
-                <legend>本次实际发送的文件</legend>
+                <legend>{m.sentFiles}</legend>
                 {exactFiles.length ? (
                   exactFiles.map((file) => (
                     <label key={file.path}>
@@ -449,22 +466,20 @@ function SubmissionDialog({
                     </label>
                   ))
                 ) : (
-                  <p>
-                    当前材料没有 PDF / DOCX，请先上传；或者改用“仅材料来源”。
-                  </p>
+                  <p>{m.noExactFiles}</p>
                 )}
               </fieldset>
             ) : null}
             <div className="form-grid">
               <label className="field-label">
-                <span>外部编号或链接（可选）</span>
+                <span>{m.externalReference}</span>
                 <input
                   onChange={(event) => setExternalReference(event.target.value)}
                   value={externalReference}
                 />
               </label>
               <label className="field-label">
-                <span>备注（可选）</span>
+                <span>{m.note}</span>
                 <input
                   onChange={(event) => setNote(event.target.value)}
                   value={note}
@@ -473,11 +488,11 @@ function SubmissionDialog({
             </div>
             <div className="dialog-actions">
               <Dialog.Close asChild>
-                <Button variant="secondary">取消</Button>
+                <Button variant="secondary">{t.common.cancel}</Button>
               </Dialog.Close>
               <Button disabled={saving} type="submit">
                 {saving ? <LoaderCircle className="spin" size={15} /> : null}
-                确认记录
+                {m.confirm}
               </Button>
             </div>
           </form>
@@ -491,6 +506,8 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
   const { applicationId } = useParams();
   const navigate = useNavigate();
   const { showToast } = useToast();
+  const { t } = useI18n();
+  const m = t.detail;
   const [application, setApplication] = useState<Application | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [loading, setLoading] = useState(true);
@@ -512,13 +529,14 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
       setSelectedStatus(data.application.status);
     } catch (error) {
       showToast({
-        title: "申请加载失败",
-        description: error instanceof Error ? error.message : "请稍后重试",
+        title: m.loadFailed,
+        description:
+          error instanceof Error ? error.message : t.common.pleaseRetryLater,
       });
     } finally {
       setLoading(false);
     }
-  }, [applicationId, showToast]);
+  }, [applicationId, showToast, m, t]);
   useEffect(() => {
     void load();
   }, [load]);
@@ -536,8 +554,9 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
       await load();
     } catch (error) {
       showToast({
-        title: "操作失败",
-        description: error instanceof Error ? error.message : "请稍后重试",
+        title: m.actionFailed,
+        description:
+          error instanceof Error ? error.message : t.common.pleaseRetryLater,
       });
     } finally {
       setBusy(null);
@@ -548,17 +567,17 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
     return (
       <div className="loading-screen">
         <LoaderCircle className="spin" size={26} />
-        <span>正在读取申请材料…</span>
+        <span>{m.loading}</span>
       </div>
     );
   if (!application || !draft)
     return (
       <EmptyState
-        description="找不到这份申请记录，可能已被移除。"
-        title="申请不存在"
+        description={m.notFoundHint}
+        title={m.notFoundTitle}
         action={
           <Button onClick={() => navigate("/applications")} variant="secondary">
-            返回申请Kanban
+            {m.backToBoard}
           </Button>
         }
       />
@@ -599,7 +618,7 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
   const uploadDeliverable = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!deliverableFile) {
-      showToast({ title: "请选择 PDF 或 DOCX 文件" });
+      showToast({ title: m.chooseFile });
       return;
     }
     return mutate("deliverable", () =>
@@ -616,7 +635,7 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
     );
   };
   const removeFile = (path: string) => {
-    if (!window.confirm("从当前材料中移除这个文件？")) return;
+    if (!window.confirm(m.confirmRemove)) return;
     void mutate("remove", () =>
       postUrlEncoded(
         `/applications/${encodeURIComponent(application.id)}/materials/remove-deliverable`,
@@ -632,7 +651,7 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
       ),
     );
   const discardDraft = () => {
-    if (!window.confirm("清空当前材料？既有材料包不会受影响。")) return;
+    if (!window.confirm(m.confirmDiscard)) return;
     void mutate("discard", () =>
       postUrlEncoded(
         `/applications/${encodeURIComponent(application.id)}/draft/discard`,
@@ -642,12 +661,7 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
   };
   const deleteApplication = async () => {
     if (!canDeleteApplication || busy === "delete") return;
-    if (
-      !window.confirm(
-        "删除后申请记录和空白草稿将永久移除。之后可以从已保存岗位重新创建。确定删除？",
-      )
-    )
-      return;
+    if (!window.confirm(m.confirmDelete)) return;
     setBusy("delete");
     try {
       await postUrlEncoded(
@@ -657,8 +671,9 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
       navigate("/applications");
     } catch (error) {
       showToast({
-        title: "删除失败",
-        description: error instanceof Error ? error.message : "请稍后重试",
+        title: m.deleteFailed,
+        description:
+          error instanceof Error ? error.message : t.common.pleaseRetryLater,
       });
     } finally {
       setBusy(null);
@@ -676,9 +691,9 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
         actions={
           <>
             <AiPromptButton
-              label="复制申请讨论指令"
+              label={m.copyDiscussion}
               prompt={buildApplicationDiscussionPrompt(application.id)}
-              successDescription="请粘贴到 Codex 中开始讨论。"
+              successDescription={m.discussionHint}
               onCheck={load}
             />
             {application.job_url ? (
@@ -688,12 +703,12 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
                 rel="noreferrer"
                 target="_blank"
               >
-                查看原始职位
+                {m.viewJob}
                 <ExternalLink size={15} />
               </a>
             ) : null}
             <Link className="button button-ghost" to="/applications">
-              ← 返回Kanban
+              {m.backToBoardShort}
             </Link>
           </>
         }
@@ -711,14 +726,16 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
           <Panel className="workflow-card compact-workflow">
             <div className="section-heading">
               <div>
-                <span className="page-eyebrow">当前阶段</span>
-                <h2>申请阶段</h2>
+                <span className="page-eyebrow">{m.stage.eyebrow}</span>
+                <h2>{m.stage.title}</h2>
               </div>
-              <span>最后更新 {formatDate(application.updated_at, true)}</span>
+              <span>
+                {m.stage.lastUpdated(formatDate(application.updated_at, true))}
+              </span>
             </div>
             <div className="status-update-row">
               <label className="field-label">
-                <span className="sr-only">申请阶段</span>
+                <span className="sr-only">{m.stage.title}</span>
                 <select
                   onChange={(event) => setSelectedStatus(event.target.value)}
                   value={selectedStatus}
@@ -732,9 +749,9 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
                         key={key}
                         value={key}
                       >
-                        {label}
+                        {labelFor(t.common.applicationStatus, key, label)}
                         {key === "applied" && application.status !== "applied"
-                          ? "（由投递记录进入）"
+                          ? m.stage.viaSubmission
                           : ""}
                       </option>
                     ),
@@ -743,28 +760,28 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
               </label>
               <input
                 onChange={(event) => setStatusNote(event.target.value)}
-                placeholder="阶段备注（可选）"
+                placeholder={m.stage.notePlaceholder}
                 value={statusNote}
               />
               <Button disabled={busy === "status"} onClick={updateStatus}>
                 {busy === "status" ? (
                   <LoaderCircle className="spin" size={15} />
                 ) : null}
-                更新阶段
+                {m.stage.update}
               </Button>
             </div>
           </Panel>
           <Panel className="workflow-card preparation-card">
             <div className="section-heading preparation-heading">
               <div>
-                <span className="page-eyebrow">申请准备清单</span>
-                <h2>申请准备清单</h2>
-                <p>完成三项材料准备，再到外部渠道投递；投递记录单独保存。</p>
+                <span className="page-eyebrow">{m.prep.title}</span>
+                <h2>{m.prep.title}</h2>
+                <p>{m.prep.intro}</p>
               </div>
-              <strong>{completedPreparationSteps} / 3 项准备</strong>
+              <strong>{m.prep.count(completedPreparationSteps)}</strong>
             </div>
             <div
-              aria-label={`材料准备进度：${completedPreparationSteps} / 3 项`}
+              aria-label={m.prep.progressLabel(completedPreparationSteps)}
               aria-valuemax={3}
               aria-valuemin={0}
               aria-valuenow={completedPreparationSteps}
@@ -775,7 +792,7 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
                 style={{ width: `${(completedPreparationSteps / 3) * 100}%` }}
               />
             </div>
-            <ol className="preparation-steps" aria-label="申请准备清单">
+            <ol className="preparation-steps" aria-label={m.prep.title}>
               <li
                 className={`preparation-step ${preparationStepClass(0, hasSourceDocuments)}`}
                 id="preparation-documents"
@@ -786,15 +803,15 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
                 <div className="step-content">
                   <div className="step-heading">
                     <div>
-                      <h3>创建职位定制職務経歴書</h3>
-                      <p>维护内容源，或让 AI 根据职位和候选人资料起草。</p>
+                      <h3>{m.prep.step1Title}</h3>
+                      <p>{m.prep.step1Hint}</p>
                     </div>
                     <span className="step-state">
                       {hasSourceDocuments
-                        ? "基础检查通过"
+                        ? m.prep.step1Passed
                         : preparation.hasSource
-                          ? "已创建 · 待修正"
-                          : "待创建"}
+                          ? m.prep.step1NeedsFix
+                          : m.prep.step1Todo}
                     </span>
                   </div>
                   <div className="step-surface">
@@ -812,21 +829,21 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
                             </div>
                             <div className="row-actions">
                               <Link
-                                aria-label={`预览 ${title}`}
+                                aria-label={m.preview(title)}
                                 className="icon-action"
                                 to={previewUrl(application.id, path)}
                               >
                                 <FileText size={15} />
                               </Link>
                               <Link
-                                aria-label={`编辑 ${title}`}
+                                aria-label={m.edit(title)}
                                 className="icon-action"
                                 to={`/applications/${encodeURIComponent(application.id)}/draft/edit/${encodedPath(path)}`}
                               >
                                 <Pencil size={15} />
                               </Link>
                               <a
-                                aria-label={`下载 ${title}`}
+                                aria-label={m.download(title)}
                                 className="icon-action"
                                 download
                                 href={downloadDraftUrl(application.id, path)}
@@ -846,7 +863,7 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
                             </div>
                             <div className="file-copy">
                               <strong>{title}</strong>
-                              <span>尚未创建</span>
+                              <span>{m.prep.notCreated}</span>
                             </div>
                             <Plus size={16} />
                           </Link>
@@ -855,27 +872,27 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
                     </div>
                     <div className="source-start">
                       <div className="source-start-copy">
-                        <span>快捷方式</span>
-                        <strong>用 Codex 起草</strong>
-                        <p>让 Codex 根据职位和候选人资料生成職務経歴書初稿。</p>
+                        <span>{m.prep.shortcut}</span>
+                        <strong>{m.prep.draftWithCodex}</strong>
+                        <p>{m.prep.draftWithCodexHint}</p>
                       </div>
                       <div className="source-start-actions">
                         <AiPromptButton
-                          label="复制起草指令"
+                          label={m.prep.copyDraftPrompt}
                           prompt={aiPrompt}
-                          successDescription="请粘贴到 Codex 中开始起草。"
+                          successDescription={m.prep.draftPromptHint}
                           onCheck={load}
                         />
                       </div>
                     </div>
                     <div className="step-footer-actions">
-                      <span>当前版本 {draft.revision}</span>
+                      <span>{m.prep.currentRevision(draft.revision)}</span>
                       <Button
                         disabled={busy === "discard"}
                         onClick={discardDraft}
                         variant="ghost"
                       >
-                        清空当前材料
+                        {m.prep.discard}
                       </Button>
                     </div>
                   </div>
@@ -891,14 +908,11 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
                 <div className="step-content">
                   <div className="step-heading">
                     <div>
-                      <h3>上传实际投递文件</h3>
-                      <p>
-                        上传你为職務経歴書在外部排版，或自行维护的履歴書实际发送的
-                        PDF 或 DOCX。系统不会生成或在线编辑履歴書。
-                      </p>
+                      <h3>{m.prep.step2Title}</h3>
+                      <p>{m.prep.step2Hint}</p>
                     </div>
                     <span className="step-state">
-                      {hasDeliverables ? "已上传 · 请核对文件" : "待上传"}
+                      {hasDeliverables ? m.prep.step2Done : m.prep.step2Todo}
                     </span>
                   </div>
                   <div className="step-surface">
@@ -913,13 +927,15 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
                           />
                         ))
                       ) : (
-                        <div className="section-empty">尚未上传最终文件。</div>
+                        <div className="section-empty">
+                          {m.prep.noDeliverables}
+                        </div>
                       )}
                     </div>
                     <form className="upload-form" onSubmit={uploadDeliverable}>
                       <div className="form-grid">
                         <label className="field-label">
-                          <span>材料用途（默认：職務経歴書）</span>
+                          <span>{m.prep.purpose}</span>
                           <select
                             onChange={(event) =>
                               setDeliverablePurpose(event.target.value)
@@ -927,22 +943,28 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
                             value={deliverablePurpose}
                           >
                             <option value="shokumu_keirekisho">
-                              職務経歴書
+                              {t.common.filePurpose.shokumu_keirekisho}
                             </option>
                             <option value="rirekisho">
-                              履歴書（用户自备）
+                              {t.common.filePurpose.rirekisho}
                             </option>
-                            <option value="employer_form">公司指定表格</option>
-                            <option value="portfolio">作品集</option>
-                            <option value="other">其他</option>
+                            <option value="employer_form">
+                              {m.prep.employerFormOption}
+                            </option>
+                            <option value="portfolio">
+                              {t.common.filePurpose.portfolio}
+                            </option>
+                            <option value="other">
+                              {t.common.filePurpose.other}
+                            </option>
                           </select>
                         </label>
                         <div className="field-label">
-                          <span>文件</span>
+                          <span>{m.prep.file}</span>
                           <label className="file-picker">
                             <Upload size={16} />
                             <span>
-                              {deliverableFile?.name ?? "选择 PDF / DOCX"}
+                              {deliverableFile?.name ?? m.prep.choosePdf}
                             </span>
                             <input
                               accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
@@ -960,7 +982,7 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
                         {busy === "deliverable" ? (
                           <LoaderCircle className="spin" size={15} />
                         ) : null}
-                        上传到当前材料
+                        {m.prep.upload}
                       </Button>
                     </form>
                     <div className="external-format-note">
@@ -968,14 +990,10 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
                         <ExternalLink size={16} />
                       </div>
                       <div>
-                        <strong>在外部调整格式</strong>
+                        <strong>{m.prep.externalTitle}</strong>
+                        <p>{m.prep.externalHint}</p>
                         <p>
-                          下载職務経歴書 Markdown 后，可在 Google Docs、Word
-                          或公司指定模板中调整内容与版式。完成后，将实际投递的
-                          PDF 或 DOCX 上传到当前材料。
-                        </p>
-                        <p>
-                          制作職務経歴書时，也可以使用{" "}
+                          {m.prep.studioBefore}{" "}
                           <a
                             href="https://md-resume.jahom.dev/"
                             rel="noreferrer"
@@ -983,7 +1001,7 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
                           >
                             Markdown Resume Studio
                           </a>{" "}
-                          预览版式。
+                          {m.prep.studioAfter}
                         </p>
                       </div>
                     </div>
@@ -1000,25 +1018,23 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
                 <div className="step-content">
                   <div className="step-heading">
                     <div>
-                      <h3>确认并保存最终版本</h3>
-                      <p>
-                        核对上传文件后保存材料包。修改当前材料后，需要重新确认。
-                      </p>
+                      <h3>{m.prep.step3Title}</h3>
+                      <p>{m.prep.step3Hint}</p>
                     </div>
                     <span className="step-state">
-                      {hasMaterialPackage ? "当前版本已保存" : "待确认"}
+                      {hasMaterialPackage ? m.prep.step3Done : m.prep.step3Todo}
                     </span>
                   </div>
                   <div className="step-surface">
                     <div className="package-save-controls">
                       <label className="package-label-input">
-                        <span>材料包标签（可选）</span>
+                        <span>{m.prep.packageLabel}</span>
                         <input
                           maxLength={120}
                           onChange={(event) =>
                             setPackageLabel(event.target.value)
                           }
-                          placeholder="例如：SWE · 2026 春季版"
+                          placeholder={m.prep.packageLabelPlaceholder}
                           value={packageLabel}
                         />
                       </label>
@@ -1036,7 +1052,7 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
                         ) : (
                           <LockKeyhole size={15} />
                         )}
-                        确认并保存材料包
+                        {m.prep.savePackage}
                       </Button>
                     </div>
                     <details
@@ -1049,15 +1065,13 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
                       }
                     >
                       <summary>
-                        <span>材料包历史</span>
+                        <span>{m.prep.history}</span>
                         <span className="summary-count">
                           {application.packages.length}
                         </span>
                       </summary>
                       <div className="accordion-body">
-                        <p className="field-hint">
-                          材料包保留当时的文件；历史版本不会代表当前材料已确认。若先在外部完成投递，记录投递时也会自动保存材料包。已投递的版本永久保留。
-                        </p>
+                        <p className="field-hint">{m.prep.historyHint}</p>
                         {application.packages.length ? (
                           <div className="package-list">
                             {application.packages
@@ -1079,7 +1093,7 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
                                   onDelete={() => {
                                     if (
                                       window.confirm(
-                                        "删除后材料包会移入本地回收目录。确认删除？",
+                                        m.prep.confirmDeletePackage,
                                       )
                                     )
                                       void mutate("delete-package", () =>
@@ -1093,7 +1107,9 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
                               ))}
                           </div>
                         ) : (
-                          <div className="section-empty">还没有材料包。</div>
+                          <div className="section-empty">
+                            {m.prep.noPackages}
+                          </div>
                         )}
                       </div>
                     </details>
@@ -1110,18 +1126,16 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
               <div className="step-content">
                 <div className="step-heading">
                   <div>
-                    <h3>记录已完成的外部投递</h3>
-                    <p>外部投递完成后，在这里留下可追溯记录。</p>
+                    <h3>{m.record.title}</h3>
+                    <p>{m.record.hint}</p>
                   </div>
                   <span className="step-state">
-                    {hasSubmissionRecord ? "已有投递记录" : "尚未记录"}
+                    {hasSubmissionRecord ? m.record.done : m.record.todo}
                   </span>
                 </div>
                 <div className="step-surface">
                   <div className="submission-action-row">
-                    <p>
-                      系统不会发送文件。记录时会把当前材料自动保存为不可变材料包，并绑定本次事实。
-                    </p>
+                    <p>{m.record.explain}</p>
                     <SubmissionDialog
                       application={application}
                       draft={draft}
@@ -1148,35 +1162,27 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
                                 )}
                               </strong>
                               <span>
-                                {(
-                                  {
-                                    exact_files: "精确文件",
-                                    source_only: "仅材料来源",
-                                    status_only: "仅状态",
-                                  } as Record<string, string>
-                                )[submission.evidence_level] ??
-                                  submission.evidence_level}{" "}
+                                {labelFor(
+                                  m.submission.evidenceLevels,
+                                  submission.evidence_level,
+                                )}{" "}
                                 ·{" "}
-                                {(
-                                  {
-                                    company_portal: "公司招聘页",
-                                    email: "邮件",
-                                    recruiting_agent: "猎头 / 中介",
-                                    linkedin: "LinkedIn",
-                                    other: "其他",
-                                  } as Record<string, string>
-                                )[submission.channel] ?? submission.channel}
+                                {labelFor(
+                                  m.submission.channels,
+                                  submission.channel,
+                                )}
                               </span>
                               <p>
                                 {submission.package_id ? (
                                   <>
-                                    材料包 <code>{submission.package_id}</code>
+                                    {m.record.package}{" "}
+                                    <code>{submission.package_id}</code>
                                   </>
                                 ) : (
-                                  "未绑定材料包"
+                                  m.record.noPackage
                                 )}
                                 {submission.files.length
-                                  ? ` · ${submission.files.length} 个已保存文件`
+                                  ? m.record.savedFiles(submission.files.length)
                                   : ""}
                               </p>
                               {submission.note ? (
@@ -1188,7 +1194,7 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
                     </div>
                   ) : (
                     <div className="section-empty large-empty">
-                      还没有投递记录。完成外部投递后，在这里留下可追溯记录。
+                      {m.record.empty}
                     </div>
                   )}
                 </div>
@@ -1201,11 +1207,9 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
           >
             <div className="danger-zone-heading">
               <div>
-                <span className="page-eyebrow">危险操作</span>
-                <h2 id="application-delete-heading">删除申请</h2>
-                <p>
-                  只允许删除尚未创建材料、材料包或投递记录的空申请。删除后可从已保存岗位重新开始。
-                </p>
+                <span className="page-eyebrow">{m.danger.eyebrow}</span>
+                <h2 id="application-delete-heading">{m.danger.title}</h2>
+                <p>{m.danger.hint}</p>
               </div>
               <Button
                 className="danger-button"
@@ -1218,21 +1222,21 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
                 ) : (
                   <Trash2 size={15} />
                 )}
-                删除申请
+                {m.danger.title}
               </Button>
             </div>
             <p className="danger-zone-hint">
               {canDeleteApplication
-                ? "当前申请是空壳，可以安全删除。"
-                : "已有材料内容、材料包、投递记录或不可变修订历史，无法删除。"}
+                ? m.danger.canDelete
+                : m.danger.cannotDelete}
             </p>
           </section>
         </div>
         <aside className="activity-panel">
           <div className="activity-heading">
             <div>
-              <span className="page-eyebrow">关键动作</span>
-              <h2>活动记录</h2>
+              <span className="page-eyebrow">{m.activityPanel.eyebrow}</span>
+              <h2>{m.activityPanel.title}</h2>
             </div>
             <Archive size={18} />
           </div>
@@ -1249,7 +1253,9 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
               </ol>
               {olderActivityEvents.length ? (
                 <details className="activity-more">
-                  <summary>更早记录（{olderActivityEvents.length}）</summary>
+                  <summary>
+                    {m.activityPanel.older(olderActivityEvents.length)}
+                  </summary>
                   <ol className="activity-list activity-list-more">
                     {olderActivityEvents.map((event) => (
                       <ActivityItem
@@ -1263,7 +1269,7 @@ export function ApplicationDetailPage({ session }: { session: Session }) {
               ) : null}
             </>
           ) : (
-            <div className="section-empty">暂无关键活动。</div>
+            <div className="section-empty">{m.activityPanel.empty}</div>
           )}
         </aside>
       </div>
@@ -1282,6 +1288,8 @@ function PackageRow({
   onRestore: () => void;
   onDelete: () => void;
 }) {
+  const { t } = useI18n();
+  const m = t.detail.packageRow;
   const deliverables = item.files.filter(
     (file) => file.path.endsWith(".pdf") || file.path.endsWith(".docx"),
   );
@@ -1292,15 +1300,15 @@ function PackageRow({
           <PackageCheck size={17} />
         </div>
         <div>
-          <strong>{item.label || "材料包"}</strong>
+          <strong>{item.label || m.fallback}</strong>
           <span>
-            {formatDate(item.created_at, true)} · {item.files.length} 个文件
+            {m.meta(formatDate(item.created_at, true), item.files.length)}
           </span>
         </div>
         {item.is_submitted ? (
-          <StatusBadge label="已绑定投递 · 已锁定" tone="success" />
+          <StatusBadge label={m.submitted} tone="success" />
         ) : (
-          <StatusBadge label="未绑定" tone="neutral" />
+          <StatusBadge label={m.unbound} tone="neutral" />
         )}
       </div>
       <div className="package-files">
@@ -1328,14 +1336,14 @@ function PackageRow({
         {deliverables.length ? (
           <span className="package-ready">
             <Check size={14} />
-            可作为精确文件证据
+            {m.exactEvidence}
           </span>
         ) : null}
         {!item.is_submitted ? (
           <>
             <Button onClick={onRestore} variant="ghost">
               <Archive size={14} />
-              恢复到当前材料
+              {m.restore}
             </Button>
             <Button
               onClick={onDelete}
@@ -1343,13 +1351,13 @@ function PackageRow({
               className="danger-button"
             >
               <Trash2 size={14} />
-              删除
+              {m.delete}
             </Button>
           </>
         ) : (
           <span className="locked-note">
             <LockKeyhole size={14} />
-            投递记录引用后永久保留
+            {m.keptForever}
           </span>
         )}
       </div>
@@ -1358,25 +1366,18 @@ function PackageRow({
 }
 
 function eventLabel(
+  t: Messages,
   type: string,
   data: Record<string, unknown>,
   labels: Record<string, string>,
 ): string {
-  if (type === "status.changed")
-    return `阶段更新为 ${labels[String(data.status)] ?? String(data.status ?? "未知")}`;
-  if (type === "application.created") return "创建申请记录";
-  if (type === "discovered-job.linked") return "关联已保存岗位";
-  if (type === "action.save") return "设置下一步行动";
-  if (type === "action.complete") return "完成待办";
-  if (type === "action.reopen") return "重新打开待办";
-  if (type === "action.clear") return "清除待办";
-  if (type === "application.submitted") return "记录已投递";
-  if (type === "draft.validated") return "更新材料检查结果";
-  if (type === "draft.discarded") return "清空当前材料";
-  if (type === "materials.packaged" || type === "materials.package-created")
-    return "创建材料包";
-  if (type === "materials.package-deleted") return "删除材料包";
-  if (type === "draft.created" || type === "draft.updated")
-    return "更新当前材料";
-  return type;
+  if (type === "status.changed") {
+    const status = data.status == null ? "" : String(data.status);
+    return t.detail.activity.statusChanged(
+      status
+        ? labelFor(t.common.applicationStatus, status, labels[status])
+        : t.common.unknown,
+    );
+  }
+  return labelFor(t.detail.activity.events, type);
 }

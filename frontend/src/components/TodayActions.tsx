@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, postUrlEncoded } from "../api";
+import { useI18n } from "../i18n";
 import { groupNextActions, localDate } from "../nextActions";
 import type { ApplicationListItem } from "../types";
 import { Button, PageIntro, Panel, useToast } from "./Layout";
@@ -12,6 +13,8 @@ export function TodayActionsPage() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const { showToast } = useToast();
+  const { t } = useI18n();
+  const m = t.workflow.today;
   const load = useCallback(async () => {
     try {
       const data = await api.applications();
@@ -19,7 +22,7 @@ export function TodayActionsPage() {
       setError("");
       setToday(localDate());
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "请重试");
+      setError(reason instanceof Error ? reason.message : String(reason));
     } finally {
       setLoading(false);
     }
@@ -48,14 +51,15 @@ export function TodayActionsPage() {
       );
       await load();
       showToast({
-        title: "待办已完成",
-        description: "可在申请详情设置下一步或重新打开。",
+        title: m.completed,
+        description: m.completedHint,
         tone: "success",
       });
     } catch (reason) {
       showToast({
-        title: "更新失败",
-        description: reason instanceof Error ? reason.message : "请重试",
+        title: m.updateFailed,
+        description:
+          reason instanceof Error ? reason.message : t.common.pleaseRetry,
       });
       await load();
     } finally {
@@ -77,21 +81,21 @@ export function TodayActionsPage() {
             </Link>
           </div>
           <span className="today-due">
-            {item.next_action.due_date ?? "未设日期"}
+            {item.next_action.due_date ?? m.noDate}
           </span>
           <Button
             variant="secondary"
             disabled={busy !== null}
             onClick={() => void complete(item)}
-            aria-label={`完成待办：${item.next_action.title}`}
+            aria-label={m.completeLabel(item.next_action.title)}
           >
-            完成
+            {m.complete}
           </Button>
           <Link
             className="button button-ghost"
             to={`/applications/${encodeURIComponent(item.id)}#next-action`}
           >
-            编辑 / 延期
+            {m.editOrPostpone}
           </Link>
         </li>
       ))}
@@ -99,56 +103,64 @@ export function TodayActionsPage() {
   );
   return (
     <div className="today-page">
-      <PageIntro description="集中处理到期行动，再推进申请" title="今日待办" />
+      <PageIntro description={m.description} title={m.title} />
       <Panel className="today-panel">
         <div className="section-heading">
           <div>
-            <span className="page-eyebrow">{today} · 本机日期</span>
-            <h2>行动列表</h2>
-            <p>逾期和今天到期的事项优先显示。</p>
+            <span className="page-eyebrow">
+              {today} · {m.localDate}
+            </span>
+            <h2>{m.listHeading}</h2>
+            <p>{m.listHint}</p>
           </div>
           <Button variant="ghost" onClick={() => void load()}>
-            刷新待办
+            {m.refresh}
           </Button>
         </div>
         {loading ? (
-          <p role="status">正在读取待办…</p>
+          <p role="status">{m.loading}</p>
         ) : error ? (
-          <p role="alert">待办读取失败：{error}</p>
+          <p role="alert">{m.loadFailed(error)}</p>
         ) : (
           <>
             {overdue.length ? (
               <section className="today-overdue">
-                <h3>已逾期 · {overdue.length}</h3>
+                <h3>
+                  {m.overdue} · {overdue.length}
+                </h3>
                 {rows(overdue)}
               </section>
             ) : null}
             {dueToday.length ? (
               <section>
-                <h3>今天到期 · {dueToday.length}</h3>
+                <h3>
+                  {m.dueToday} · {dueToday.length}
+                </h3>
                 {rows(dueToday)}
               </section>
             ) : null}
             {!overdue.length && !dueToday.length ? (
-              <p className="today-empty">今天没有到期或逾期的待办。</p>
+              <p className="today-empty">{m.none}</p>
             ) : null}
             {upcoming.length ? (
               <details className="today-later">
-                <summary>之后到期 · {upcoming.length}</summary>
+                <summary>
+                  {m.upcoming} · {upcoming.length}
+                </summary>
                 {rows(upcoming)}
               </details>
             ) : null}
             {undated.length ? (
               <details className="today-later">
-                <summary>未设日期 · {undated.length}</summary>
+                <summary>
+                  {m.undated} · {undated.length}
+                </summary>
                 {rows(undated)}
               </details>
             ) : null}
             <p className="field-hint">
-              {unset
-                ? `${unset} 份进行中的申请尚未设置下一步，或上一项已完成。`
-                : "在申请详情中管理下一步行动。"}{" "}
-              <Link to="/applications">前往申请看板 →</Link>
+              {unset ? m.unset(unset) : m.manageHint}{" "}
+              <Link to="/applications">{m.toBoard}</Link>
             </p>
           </>
         )}

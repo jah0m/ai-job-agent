@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useI18n } from "../i18n";
 import type { Session } from "../types";
 import { GlobalHeader } from "./GlobalHeader";
 import { MobileNavigation } from "./MobileNavigation";
@@ -12,10 +13,11 @@ export function AppShell({
   session: Session;
   children: ReactNode;
 }) {
+  const { t } = useI18n();
   return (
     <ToastProvider>
       <a className="skip-link" href="#main-content">
-        跳到主要内容
+        {t.shell.skipToContent}
       </a>
       <div className="app-shell">
         <Sidebar session={session} />

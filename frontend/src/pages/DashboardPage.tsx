@@ -29,21 +29,29 @@ import {
   StatusBadge,
   useToast,
 } from "../components/Layout";
-import { formatDate, recommendationLabel, recommendationTone } from "../format";
 import {
-  AI_PROMPTS,
+  formatDate,
+  labelFor,
+  recommendationLabel,
+  recommendationTone,
+} from "../format";
+import { type Messages, useI18n } from "../i18n";
+import {
+  aiPrompts,
   buildJobAnalysisPrompt,
   buildJobRefreshPrompt,
 } from "../prompts";
 import type { Job, JobDetail, Labels, Session } from "../types";
 
+type DashboardMessages = Messages["dashboard"];
+
 const JOB_STATUS_TABS = [
-  { key: "application_active", label: "申请中" },
-  { key: "saved", label: "收藏" },
-  { key: "new", label: "新发现" },
-  { key: "", label: "全部" },
-  { key: "skipped", label: "跳过" },
-  { key: "application_closed", label: "已关闭" },
+  { key: "application_active", tab: "application_active" },
+  { key: "saved", tab: "saved" },
+  { key: "new", tab: "new" },
+  { key: "", tab: "all" },
+  { key: "skipped", tab: "skipped" },
+  { key: "application_closed", tab: "application_closed" },
 ] as const;
 const JOB_SEARCH_DEBOUNCE_MS = 300;
 
@@ -58,10 +66,11 @@ function jobStatusTone(value: string): string {
 }
 
 function TableRating({ value }: { value?: number | null }) {
+  const { t } = useI18n();
   const score = value ?? 0;
   return (
     <div
-      aria-label={score ? `岗位评分 ${score} 星` : "岗位未评分"}
+      aria-label={score ? t.dashboard.ratingLabel(score) : t.dashboard.unrated}
       className="table-rating"
       role="img"
     >
@@ -78,22 +87,20 @@ function TableRating({ value }: { value?: number | null }) {
 }
 
 function workStyleSummary(
+  m: DashboardMessages,
   remote?: Job["remote"],
   officeDays?: number | null,
 ): string {
-  const remoteLabels = {
-    onsite: "到岗办公",
-    hybrid: "混合办公",
-    remote: "远程办公",
-    unknown: "办公方式待确认",
-  } as const;
-  const remoteLabel = remote ? remoteLabels[remote] : "";
-  const officeDaysLabel = officeDays ? `每周到岗 ${officeDays} 天` : "";
+  const remoteLabel = remote ? m.remote[remote] : "";
+  const officeDaysLabel = officeDays ? m.officeDays(officeDays) : "";
   return [remoteLabel, officeDaysLabel].filter(Boolean).join(" · ");
 }
 
-function jobWorkStyle(job: Job): string {
-  return workStyleSummary(job.remote, job.office_days_per_week) || "未公开";
+function jobWorkStyle(t: Messages, job: Job): string {
+  return (
+    workStyleSummary(t.dashboard, job.remote, job.office_days_per_week) ||
+    t.common.notDisclosed
+  );
 }
 
 function SelectArrow() {
@@ -137,6 +144,8 @@ function JobsTable({
   labels: Labels;
   onSelect: (id: string) => void;
 }) {
+  const { t } = useI18n();
+  const c = t.dashboard.columns;
   return (
     <div className="table-scroll">
       <table className="jobs-table">
@@ -152,14 +161,14 @@ function JobsTable({
         </colgroup>
         <thead>
           <tr>
-            <th>职位 / 公司</th>
-            <th>薪资</th>
-            <th>AI 推荐</th>
-            <th>评分</th>
-            <th>状态</th>
-            <th>地点</th>
-            <th>平台</th>
-            <th>发布日期</th>
+            <th>{c.title}</th>
+            <th>{c.salary}</th>
+            <th>{c.recommendation}</th>
+            <th>{c.rating}</th>
+            <th>{c.status}</th>
+            <th>{c.location}</th>
+            <th>{c.portal}</th>
+            <th>{c.posted}</th>
           </tr>
         </thead>
         <tbody>
@@ -180,12 +189,15 @@ function JobsTable({
                   type="button"
                 >
                   <strong>{job.title}</strong>
-                  <span>{job.company || "未知公司"}</span>
+                  <span>{job.company || t.common.unknownCompany}</span>
                 </button>
               </td>
               <td className="salary-cell">
-                <span className="truncate-cell" title={job.salary || "未公开"}>
-                  {job.salary || "未公开"}
+                <span
+                  className="truncate-cell"
+                  title={job.salary || t.common.notDisclosed}
+                >
+                  {job.salary || t.common.notDisclosed}
                 </span>
               </td>
               <td>
@@ -199,17 +211,21 @@ function JobsTable({
               </td>
               <td>
                 <StatusBadge
-                  label={labels[job.status] ?? job.status}
+                  label={labelFor(
+                    t.common.jobStatus,
+                    job.status,
+                    labels[job.status],
+                  )}
                   tone={jobStatusTone(job.status)}
                 />
               </td>
               <td className="muted-cell">
                 <div
                   className="job-location-cell"
-                  title={`${job.location || "地点未公开"} / ${jobWorkStyle(job)}`}
+                  title={`${job.location || t.dashboard.locationUnknown} / ${jobWorkStyle(t, job)}`}
                 >
-                  <strong>{job.location || "地点未公开"}</strong>
-                  <span>{jobWorkStyle(job)}</span>
+                  <strong>{job.location || t.dashboard.locationUnknown}</strong>
+                  <span>{jobWorkStyle(t, job)}</span>
                 </div>
               </td>
               <td className="muted-cell">{job.portal}</td>
@@ -223,18 +239,20 @@ function JobsTable({
 }
 
 function Analysis({ analysis }: { analysis: JobDetail["match_analysis"] }) {
+  const { t } = useI18n();
+  const m = t.dashboard.analysis;
   if (!analysis)
     return (
       <div className="analysis-empty">
-        <strong>尚未进行 AI 匹配分析</strong>
-        <p>请在 Codex 中要求分析这个职位；分析结果保存后会显示在这里。</p>
+        <strong>{m.emptyTitle}</strong>
+        <p>{m.emptyHint}</p>
       </div>
     );
   const groups = [
-    ["匹配经验", analysis.strengths, ""],
-    ["可能不满足的要求", analysis.gaps.disqualifying, "is-critical"],
-    ["可补足的差距", analysis.gaps.learnable, "is-gap"],
-    ["需要确认", analysis.gaps.unclear, "is-question"],
+    [m.strengths, analysis.strengths, ""],
+    [m.disqualifying, analysis.gaps.disqualifying, "is-critical"],
+    [m.learnable, analysis.gaps.learnable, "is-gap"],
+    [m.unclear, analysis.gaps.unclear, "is-question"],
   ] as const;
   return (
     <>
@@ -244,18 +262,18 @@ function Analysis({ analysis }: { analysis: JobDetail["match_analysis"] }) {
           tone={recommendationTone(analysis.recommendation)}
         />
         <span>
-          置信度：
+          {m.confidence}
           {analysis.confidence === "high"
-            ? "高"
+            ? m.confidenceHigh
             : analysis.confidence === "medium"
-              ? "中"
-              : "低"}
+              ? m.confidenceMedium
+              : m.confidenceLow}
         </span>
       </div>
       <p className="analysis-summary">{analysis.summary}</p>
       {analysis.stale ? (
         <div className="inline-alert alert-warning">
-          <strong>分析可能已过期</strong>
+          <strong>{m.stale}</strong>
           <ul>
             {analysis.stale_reasons?.map((reason) => (
               <li key={reason}>{reason}</li>
@@ -278,12 +296,12 @@ function Analysis({ analysis }: { analysis: JobDetail["match_analysis"] }) {
       {analysis.hard_constraints.reasons.length ? (
         <div className="analysis-group">
           <strong>
-            硬性条件：
+            {m.hardConstraints}
             {analysis.hard_constraints.result === "pass"
-              ? "符合"
+              ? m.pass
               : analysis.hard_constraints.result === "fail"
-                ? "不符合"
-                : "尚不明确"}
+                ? m.fail
+                : m.undetermined}
           </strong>
           <ul>
             {analysis.hard_constraints.reasons.map((item) => (
@@ -294,7 +312,7 @@ function Analysis({ analysis }: { analysis: JobDetail["match_analysis"] }) {
       ) : null}
       {analysis.questions.length ? (
         <div className="analysis-group is-question">
-          <strong>下一步确认问题</strong>
+          <strong>{m.questions}</strong>
           <ul>
             {analysis.questions.map((item) => (
               <li key={item}>{item}</li>
@@ -303,7 +321,9 @@ function Analysis({ analysis }: { analysis: JobDetail["match_analysis"] }) {
         </div>
       ) : null}
       {analysis.source_limitations ? (
-        <p className="field-hint">资料限制：{analysis.source_limitations}</p>
+        <p className="field-hint">
+          {m.limitations(analysis.source_limitations)}
+        </p>
       ) : null}
     </>
   );
@@ -321,9 +341,12 @@ function preventBackgroundScroll(event: React.WheelEvent<HTMLElement>) {
 
 const DRAWER_ANIMATION_MS = 220;
 
-function workStyleLabel(workStyle: JobDetail["work_style"]): string {
+function workStyleLabel(
+  m: DashboardMessages,
+  workStyle: JobDetail["work_style"],
+): string {
   if (!workStyle) return "";
-  return workStyleSummary(workStyle.remote, workStyle.office_days_per_week);
+  return workStyleSummary(m, workStyle.remote, workStyle.office_days_per_week);
 }
 
 function JobDrawer({
@@ -340,6 +363,9 @@ function JobDrawer({
   onRefresh: () => Promise<void>;
 }) {
   const { showToast } = useToast();
+  const { t } = useI18n();
+  const m = t.dashboard;
+  const d = m.drawer;
   const navigate = useNavigate();
   const [status, setStatus] = useState(job.status);
   const [rating, setRating] = useState(job.rating ? String(job.rating) : "");
@@ -379,14 +405,17 @@ function JobDrawer({
         if (reviewRevisionRef.current === revision) {
           setReviewSaveState("error");
           showToast({
-            title: "自动保存失败",
-            description: error instanceof Error ? error.message : "请稍后重试",
+            title: m.autosaveFailed,
+            description:
+              error instanceof Error
+                ? error.message
+                : t.common.pleaseRetryLater,
           });
         }
       }
     }, 700);
     return () => window.clearTimeout(timer);
-  }, [job.id, notes, rating, reviewSaveState, showToast]);
+  }, [job.id, notes, rating, reviewSaveState, showToast, m, t]);
 
   const changeRating = (value: string) => {
     reviewRevisionRef.current += 1;
@@ -412,8 +441,9 @@ function JobDrawer({
     } catch (error) {
       setStatus(job.status);
       showToast({
-        title: "更新失败",
-        description: error instanceof Error ? error.message : "请稍后重试",
+        title: m.updateFailed,
+        description:
+          error instanceof Error ? error.message : t.common.pleaseRetryLater,
       });
     } finally {
       setStatusSaving(false);
@@ -431,8 +461,9 @@ function JobDrawer({
       navigate(url.pathname);
     } catch (error) {
       showToast({
-        title: "创建失败",
-        description: error instanceof Error ? error.message : "请稍后重试",
+        title: m.createFailed,
+        description:
+          error instanceof Error ? error.message : t.common.pleaseRetryLater,
       });
     } finally {
       setCreating(false);
@@ -441,30 +472,30 @@ function JobDrawer({
 
   return (
     <aside
-      aria-label="职位详情"
+      aria-label={d.label}
       className={`job-drawer${isClosing ? " is-closing" : ""}`}
       onWheel={preventBackgroundScroll}
     >
       <div className="drawer-header">
         <div>
-          <span className="drawer-kicker">职位详情</span>
+          <span className="drawer-kicker">{d.label}</span>
           <h2>{job.title}</h2>
           <div className="drawer-source-actions">
             <a href={job.url} rel="noreferrer" target="_blank">
-              {job.company || "未知公司"}
+              {job.company || t.common.unknownCompany}
               <ExternalLink size={14} />
             </a>
             <AiPromptButton
               className="drawer-refresh-button"
-              label="复制岗位更新指令"
+              label={d.copyRefresh}
               prompt={refreshPrompt}
-              successDescription="请粘贴到 Codex 中重新获取并更新岗位。"
+              successDescription={d.refreshHint}
               onCheck={onRefresh}
             />
           </div>
         </div>
         <button
-          aria-label="关闭详情"
+          aria-label={d.close}
           className="icon-button"
           onClick={onClose}
           type="button"
@@ -473,38 +504,40 @@ function JobDrawer({
         </button>
       </div>
       <div className="drawer-meta">
-        <span>{job.location || "地点未公开"}</span>
+        <span>{job.location || m.locationUnknown}</span>
         <span>{job.portal}</span>
-        {job.posted_at ? <span>发布于 {formatDate(job.posted_at)}</span> : null}
-        <span>更新于 {formatDate(job.last_seen_at)}</span>
+        {job.posted_at ? (
+          <span>{d.postedOn(formatDate(job.posted_at))}</span>
+        ) : null}
+        <span>{d.updatedOn(formatDate(job.last_seen_at))}</span>
       </div>
       <div className="drawer-body">
         {job.salary || job.work_style || job.salary_detail ? (
           <section className="drawer-section">
-            <h3>岗位信息</h3>
+            <h3>{d.info}</h3>
             <dl className="job-facts-grid">
               {job.salary ? (
                 <div>
-                  <dt>薪资范围</dt>
+                  <dt>{d.salaryRange}</dt>
                   <dd>{job.salary}</dd>
                 </div>
               ) : null}
               {job.work_style ? (
                 <div>
-                  <dt>工作方式</dt>
-                  <dd>{workStyleLabel(job.work_style)}</dd>
+                  <dt>{d.workStyle}</dt>
+                  <dd>{workStyleLabel(m, job.work_style)}</dd>
                 </div>
               ) : null}
             </dl>
             {job.salary_detail ? (
               <div className="job-detail-block">
-                <strong>薪资说明</strong>
+                <strong>{d.salaryDetail}</strong>
                 <p>{job.salary_detail}</p>
               </div>
             ) : null}
             {job.work_style?.source_text ? (
               <div className="job-detail-block">
-                <strong>办公安排</strong>
+                <strong>{d.officeArrangement}</strong>
                 <p>{job.work_style.source_text}</p>
               </div>
             ) : null}
@@ -512,7 +545,7 @@ function JobDrawer({
         ) : null}
         {job.description ? (
           <section className="drawer-section">
-            <h3>职位描述</h3>
+            <h3>{d.description}</h3>
             <p className="drawer-description">{job.description}</p>
             {job.tags.length ? (
               <div className="tag-list">
@@ -527,10 +560,10 @@ function JobDrawer({
         job.requirements?.nice_to_have?.length ||
         job.language_requirements?.length ? (
           <section className="drawer-section">
-            <h3>任职要求</h3>
+            <h3>{d.requirements}</h3>
             {job.requirements?.must?.length ? (
               <div className="job-requirement-group">
-                <strong>必须条件</strong>
+                <strong>{d.must}</strong>
                 <ul>
                   {job.requirements.must.map((item) => (
                     <li key={item}>{item}</li>
@@ -540,7 +573,7 @@ function JobDrawer({
             ) : null}
             {job.requirements?.nice_to_have?.length ? (
               <div className="job-requirement-group">
-                <strong>加分条件</strong>
+                <strong>{d.niceToHave}</strong>
                 <ul>
                   {job.requirements.nice_to_have.map((item) => (
                     <li key={item}>{item}</li>
@@ -550,7 +583,7 @@ function JobDrawer({
             ) : null}
             {job.language_requirements?.length ? (
               <div className="job-requirement-group">
-                <strong>语言要求</strong>
+                <strong>{d.languages}</strong>
                 <ul>
                   {job.language_requirements.map((item) => (
                     <li key={item}>{item}</li>
@@ -562,16 +595,16 @@ function JobDrawer({
         ) : null}
         <section className="drawer-section">
           <div className="section-label-row">
-            <h3>AI 匹配分析</h3>
+            <h3>{d.analysis}</h3>
             <div className="analysis-heading-actions">
               {job.match_analysis ? (
                 <Check className="success-icon" size={17} />
               ) : null}
               <AiPromptButton
                 className="analysis-copy-button"
-                label="复制分析指令"
+                label={d.copyAnalysis}
                 prompt={analysisPrompt}
-                successDescription="请粘贴到 Codex 中开始分析。"
+                successDescription={d.analysisHint}
                 onCheck={onRefresh}
               />
             </div>
@@ -582,7 +615,7 @@ function JobDrawer({
         </section>
         <section className="drawer-section">
           <div className="section-label-row">
-            <h3>岗位操作</h3>
+            <h3>{d.actions}</h3>
             {statusSaving ? <LoaderCircle className="spin" size={16} /> : null}
           </div>
           <div
@@ -604,7 +637,7 @@ function JobDrawer({
                 fill={status === "saved" ? "currentColor" : "none"}
                 size={17}
               />
-              收藏
+              {d.favorite}
             </button>
             <button
               aria-pressed={status === "skipped"}
@@ -616,7 +649,7 @@ function JobDrawer({
               type="button"
             >
               <X size={18} />
-              跳过
+              {d.skip}
             </button>
           </div>
           {isStatusLocked ? (
@@ -624,41 +657,41 @@ function JobDrawer({
               className="drawer-job-actions-note"
               id="applied-job-actions-note"
             >
-              已建立申请，不能再收藏或跳过。
+              {d.lockedNote}
             </p>
           ) : null}
         </section>
         <section className="drawer-section">
           <div className="section-label-row">
-            <h3>评分与备注</h3>
+            <h3>{d.review}</h3>
             <span
               aria-live="polite"
               className={`review-save-status is-${reviewSaveState}`}
             >
-              {reviewSaveState === "dirty" ? "等待保存…" : null}
+              {reviewSaveState === "dirty" ? d.pendingSave : null}
               {reviewSaveState === "saving" ? (
                 <>
-                  <LoaderCircle className="spin" size={13} /> 保存中…
+                  <LoaderCircle className="spin" size={13} /> {t.common.saving}
                 </>
               ) : null}
               {reviewSaveState === "saved" ? (
                 <>
-                  <Check size={13} /> 已自动保存
+                  <Check size={13} /> {d.autosaved}
                 </>
               ) : null}
-              {reviewSaveState === "error" ? "保存失败" : null}
+              {reviewSaveState === "error" ? d.saveFailed : null}
             </span>
           </div>
           <div className="stack-form">
             <fieldset className="rating-field">
-              <legend>岗位评分</legend>
+              <legend>{d.rating}</legend>
               <div className="rating-stars">
                 {[1, 2, 3, 4, 5].map((score) => {
                   const selectedScore = Number(rating || 0);
                   const isSelected = score <= selectedScore;
                   return (
                     <button
-                      aria-label={`${score} 星`}
+                      aria-label={d.stars(score)}
                       aria-pressed={rating === String(score)}
                       className={`rating-star${isSelected ? " is-selected" : ""}`}
                       key={score}
@@ -677,16 +710,16 @@ function JobDrawer({
                   );
                 })}
                 <span aria-live="polite" className="rating-value">
-                  {rating ? `${rating} 星` : "未评分"}
+                  {rating ? d.stars(rating) : d.notRated}
                 </span>
               </div>
             </fieldset>
             <label className="field-label">
-              <span>个人备注</span>
+              <span>{d.notes}</span>
               <textarea
                 maxLength={4000}
                 onChange={(event) => changeNotes(event.target.value)}
-                placeholder="记录亮点、疑问或下一步…"
+                placeholder={d.notesPlaceholder}
                 rows={4}
                 value={notes}
               />
@@ -694,16 +727,17 @@ function JobDrawer({
           </div>
         </section>
         <section className="drawer-section application-callout">
-          <h3>申请记录</h3>
+          <h3>{d.application}</h3>
           {job.application ? (
             <>
               <p>
-                申请阶段：
+                {d.applicationStage}
                 <StatusBadge
-                  label={
-                    session.application_labels[job.application.status] ??
-                    job.application.status
-                  }
+                  label={labelFor(
+                    t.common.applicationStatus,
+                    job.application.status,
+                    session.application_labels[job.application.status],
+                  )}
                   tone="info"
                 />
               </p>
@@ -711,18 +745,15 @@ function JobDrawer({
                 onClick={() => navigate(`/applications/${job.application?.id}`)}
                 variant="secondary"
               >
-                查看申请
+                {d.viewApplication}
               </Button>
             </>
           ) : (
             <>
-              <p>
-                还没有申请记录。创建后可以在申请Kanban准备职位定制的職務経歴書和最终
-                PDF / DOCX。
-              </p>
+              <p>{d.noApplication}</p>
               <Button disabled={creating} onClick={createApplication}>
                 {creating ? <LoaderCircle className="spin" size={15} /> : null}
-                创建申请记录
+                {d.createApplication}
               </Button>
             </>
           )}
@@ -778,6 +809,8 @@ function AnimatedJobDrawer({
 export function DashboardPage({ session }: { session: Session }) {
   const [params, setParams] = useSearchParams();
   const { showToast } = useToast();
+  const { t } = useI18n();
+  const m = t.dashboard;
   const [data, setData] = useState<import("../types").JobsResponse | null>(
     null,
   );
@@ -823,14 +856,14 @@ export function DashboardPage({ session }: { session: Session }) {
       setData(await api.jobs(query));
     } catch (error) {
       showToast({
-        title: "岗位加载失败",
-        description: error instanceof Error ? error.message : "请检查本地服务",
+        title: m.loadFailed,
+        description: error instanceof Error ? error.message : m.checkService,
       });
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [query, showToast]);
+  }, [query, showToast, m]);
 
   useEffect(() => {
     void load();
@@ -892,34 +925,34 @@ export function DashboardPage({ session }: { session: Session }) {
     return (
       <div className="loading-screen">
         <LoaderCircle className="spin" size={26} />
-        <span>正在读取本机岗位…</span>
+        <span>{m.loading}</span>
       </div>
     );
   if (!data)
     return (
       <EmptyState
-        title="暂时无法读取岗位"
-        description="请确认本地 AI Job Agent 服务正在运行。"
-        action={<Button onClick={() => void load()}>重试</Button>}
+        title={m.unavailableTitle}
+        description={m.unavailableHint}
+        action={<Button onClick={() => void load()}>{t.common.retry}</Button>}
       />
     );
 
   return (
     <div className={`dashboard-page${data.selected_job ? " has-drawer" : ""}`}>
       <PageIntro
-        description={`${data.total} 个已保存岗位`}
-        title="岗位"
+        description={m.savedCount(data.total)}
+        title={m.title}
         actions={
           <>
             <AiPromptButton
-              label="复制岗位搜索指令"
-              prompt={AI_PROMPTS.jobSearch}
-              successDescription="请粘贴到 Codex 中开始搜索。"
+              label={m.copySearch}
+              prompt={aiPrompts().jobSearch}
+              successDescription={m.searchHint}
               onCheck={load}
             />
             <Button onClick={() => void load()} variant="secondary">
               <RefreshCw className={refreshing ? "spin" : ""} size={16} />
-              刷新岗位
+              {m.refresh}
             </Button>
           </>
         }
@@ -928,27 +961,26 @@ export function DashboardPage({ session }: { session: Session }) {
         <div className="jobs-import-note">
           <Info aria-hidden="true" size={16} />
           <p>
-            <strong>添加岗位：</strong>
-            把公开的职位详情页 URL 发给 Codex，或让 Codex
-            按求职偏好搜索；整理后的岗位会出现在这里。
+            <strong>{m.importLead}</strong>
+            {m.importNote}
           </p>
         </div>
         <div className="toolbar-row">
           <label className="search-box">
             <Search size={18} />
-            <span className="sr-only">搜索职位</span>
+            <span className="sr-only">{m.searchLabel}</span>
             <input
               onChange={(event) => setSearchInput(event.target.value)}
-              placeholder="搜索职位、公司或技术"
+              placeholder={m.searchPlaceholder}
               value={searchInput}
             />
           </label>
           <FilterSelect
-            label="平台"
+            label={m.portalFilter}
             onChange={(value) => updateParams({ portal: value })}
             value={portal}
           >
-            <option value="">全部平台</option>
+            <option value="">{m.allPortals}</option>
             {data.portals.map((item) => (
               <option key={item} value={item}>
                 {item}
@@ -956,25 +988,25 @@ export function DashboardPage({ session }: { session: Session }) {
             ))}
           </FilterSelect>
           <FilterSelect
-            label="AI 推荐"
+            label={m.recommendationFilter}
             onChange={(value) => updateParams({ recommendation: value })}
             value={recommendation}
           >
-            <option value="">全部推荐</option>
-            <option value="pursue">推荐申请</option>
-            <option value="consider">可以考虑</option>
-            <option value="skip">暂缓申请</option>
-            <option value="unanalyzed">未分析</option>
+            <option value="">{m.allRecommendations}</option>
+            <option value="pursue">{t.common.recommendation.pursue}</option>
+            <option value="consider">{t.common.recommendation.consider}</option>
+            <option value="skip">{t.common.recommendation.skip}</option>
+            <option value="unanalyzed">{t.common.recommendation.none}</option>
           </FilterSelect>
           <FilterSelect
-            label="岗位评分"
+            label={m.ratingFilter}
             onChange={(value) => updateParams({ rating: value })}
             value={rating}
           >
-            <option value="">全部评分</option>
-            <option value="4">4 星以上</option>
-            <option value="3">3 星以上</option>
-            <option value="unrated">未评分</option>
+            <option value="">{m.allRatings}</option>
+            <option value="4">{m.fourPlus}</option>
+            <option value="3">{m.threePlus}</option>
+            <option value="unrated">{m.drawer.notRated}</option>
           </FilterSelect>
           <Button
             className="filter-reset-button"
@@ -992,18 +1024,18 @@ export function DashboardPage({ session }: { session: Session }) {
             variant="ghost"
           >
             <RotateCcw size={14} />
-            重置
+            {m.reset}
           </Button>
         </div>
         <div className="status-tabs" role="tablist">
-          {JOB_STATUS_TABS.map(({ key, label }) => (
+          {JOB_STATUS_TABS.map(({ key, tab }) => (
             <button
               className={status === key ? "is-active" : ""}
               key={key}
               onClick={() => updateParams({ status: key })}
               type="button"
             >
-              {label}{" "}
+              {m.tabs[tab]}{" "}
               <span>
                 {key
                   ? (data.counts[key] ?? 0)
@@ -1024,12 +1056,8 @@ export function DashboardPage({ session }: { session: Session }) {
           />
         ) : (
           <EmptyState
-            title={data.total ? "没有符合条件的岗位" : "尚未保存岗位"}
-            description={
-              data.total
-                ? "调整搜索词或筛选条件后再试。"
-                : "把公开职位 URL 发给 Codex 导入，或让 Codex 搜索岗位。"
-            }
+            title={data.total ? m.noMatchTitle : m.noJobsTitle}
+            description={data.total ? m.noMatchHint : m.noJobsHint}
           />
         )}
       </Panel>
