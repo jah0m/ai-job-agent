@@ -1,6 +1,6 @@
 # AI Job Agent
 
-简体中文 | [English](README.md)
+简体中文 | [English](README.md) | [日本語](README.ja.md)
 
 **为日本中途求职打造的本地工作台：用 AI Job Agent 管理进度，用 Codex 搜索岗位、分析匹配度并准备日文申请材料。**
 
@@ -117,6 +117,7 @@ AI Job Agent 不会替你向公司投递，也不会把“生成材料”或“�
 
 - **使用者**：[首次使用指南](docs/user/first-use-guide.md)
 - **开发者**：[开发与环境配置](docs/developer/development.md)、[系统架构](docs/developer/architecture.md)、[岗位搜索与导入边界](docs/developer/job-ingestion.md)、[存储模型](docs/developer/storage-model.md)
+- **架构讲解**：[交互式总览](https://jah0m.github.io/ai-job-agent/)，展示 Codex、Web 仪表盘和 CLI 如何协作
 - **AI Agent**：[仓库规则](AGENTS.md)和 [Agent 工作流](.agents/README.md)
 
 ## 项目边界
